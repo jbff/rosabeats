@@ -1,0 +1,70 @@
+##BEATS## This was segmented and tracked using librosa's beat tracker
+# It was segmented using the vamp segmentino plugin not the default laplacian
+# The track used for this example was obtained from:
+# https://freemusicarchive.org/music/play-house/single/random-drop/
+# and is distributed under the Creative Commons Public Domain License (CC0)
+# Thanks to the creator.
+
+file /sto/prj/neuroperm/beatrecipes/audio/play_house-random_drop.mp3
+beats_bar 8 0
+# total beats = 308
+# total bars = 38 (beats 0-304)
+def N1_0 bars 0-11
+def A_1 bars 12-19
+def A_2 bars 20-27
+def N3_3 bars 28-31
+def A_4 bars 32-37
+
+def N1_0_beats beats 0-98	# dur = 48.470604s, beats 0-98
+def A_1_beats beats 99-163	# dur = 30.727833s, beats 99-163
+def A_2_beats beats 164-223	# dur = 28.801542s, beats 164-223
+def N3_3_beats beats 224-259	# dur = 17.278604s, beats 224-259
+def A_4_beats beats 260-306	# dur = 29.718271s, beats 260-306
+
+beat_div 164 8 8
+beat_div 223 4 4
+beat_div 224 2 2
+beat_div 223 4 8
+beat_div 164 8 16
+
+rest 5
+
+play N1_0
+play A_1 2
+play A_2 2
+play N3_3 2
+play A_4
+
+rest 5
+
+bars_shuf 0-11
+bars_shuf 12-19
+bars_shuf 20-27
+bars_shuf 28-31
+bars_shuf 32-37
+
+rest 5
+
+bars_rev 37-0
+
+rest 5
+
+beats_shuf 0-98
+beats 163-99
+beats_shuf 164-223
+beats 259-224
+beats_shuf 260-306
+
+rest 5
+
+beats 0 2
+beats 2 4
+beats 4 2
+beats 8 4
+beats 16 2
+beats 32 4
+beats 64 2
+beats 128 4
+beats 256 2
+beats 306 8
+

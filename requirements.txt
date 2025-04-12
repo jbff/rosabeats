@@ -1,0 +1,8 @@
+librosa==0.11.0
+soundfile==0.13.1
+ffms2==0.4.5.5
+sounddevice==0.5.1
+numpy==2.2.4
+scipy==1.15.2
+scikit-learn==1.6.1
+vamp==1.1.0
