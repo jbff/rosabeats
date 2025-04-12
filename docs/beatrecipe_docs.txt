@@ -1,0 +1,80 @@
+every beat recipe must contain these two lines, at the top:
+            file <filename.wav>
+            beats_bar # #
+
+the two arguments to beats_bar specify the number of beats pe bar, and the absolute beat
+number in the file that starts the first bar (this is often 0, first beat = first bar,
+but is also often not, depending on track and file characteristics; using control_beats.py
+to experiment is best way to discover if this should be non-zero for a given track)
+
+These two lines are necessary to specify source and in order to calculate where bars are
+in the file. After them, everything else is optional and can occur as many or few times as
+you like, in any order
+
+            beats #
+            bars #
+            beats #-#
+            bars #-#
+
+These are the simplest. You can play one or more beats, or one or more bars, by specifying
+the beats or bars you wish to play. All of these are valid syntax:
+
+            beats 3
+            beats 3-3
+            beats 3-8
+            beats 8-3
+            bars 4
+            bars 4-4
+            bars 4-12
+            bars 12-4
+
+If the first and last  # specified are the same, it will be like specifying a single
+beat/bar. If the first # specified is greater than the last, the beats/bars will be
+played in reverse order, i.e. bars 4-1 will play bar 4, bar 3, bar 2, then bar 1.
+
+            rest #
+
+Will insert silence. The argument specifies number of beats of silence. "rest 1" will
+insert 1 beat of silence. Argument is floating point, so you can add fractional beats
+of silence, e.g. "rest 0.5" will add half a beat of silence.
+
+            beats_shuf #
+            beats_shuf #-#
+            bars_shuf #
+            bars_shuf #-#
+
+These two act much like beats and bars covered previously, except instead of playing
+the specified beats or bars in the sequence specified, they will be randomly shuffled
+before being played. If only a single beat or bar is given after these specifiers,
+it will be the same as using "beats" or "bars" as shuffling a single item will always
+result in the output of that one item (i.e. "bars_shuf 8" is same as "bars 8").
+
+
+            bars_rev #
+            bars_rev #-#
+
+This is like bars, except it will play the beats in the bar in reverse order. That is,
+if "bars 0" played beats 0, 1, 2, 3, 4, 5, 6, and 7, "bars_rev 0" would play beats
+7, 6, 5, 4, 3, 2, 1, and 0.
+
+            beat_div # # #
+This will divide a beat into equal segments and play a certain number of them. The
+first argument is the beat #. The second argument is how many pieces to divide the beat
+into. THe third argument is how many times to play that subdivided beat. For example,
+"beat_div 540 2 2" will play the first half of beat 540 twice; "beat_div 300 3 12"
+will play the first third of beat 300 12 times (this will sound like 4 beats of triplets).
+
+            def name bars #
+            def name bars #-#
+            def name beats #
+            def name beats #-#
+
+This defines a segment that can later be played with the play command (below). Right now
+it can only handle beats and bars specifications (per above) but the plan is to expand it
+to represent any valid command.
+
+            play name
+
+This will play any defined segment defined with "def" (above). If previously you had said
+"def seg1 bars 0-7" later when you say "play seg1" it will actually play bars 0-7.
+1
