@@ -49,7 +49,6 @@ python setup.py install
 This will install the package and its dependencies, and make the following command-line tools available:
 - `beatrecipe-processor`: Process beat recipes
 - `segment-song`: Segment songs using librosa's Laplacian segmentation
-- `segment-song-segmentino`: Segment songs using the Segmentino plugin
 
 ### Optional: Vamp Plugins for Segmentino
 
@@ -65,7 +64,7 @@ The package can be imported in Python as:
 import rosabeats
 ```
 
-Documentation for beat recipes can be found in the `docs/` directory of the package. The main tools (`beatrecipe_processor.py`, `segment_song.py`, and `segment_song_segmentino.py`) have been tested and are functional. Additional scripts in the `scripts/` directory may be of interest but have not been recently tested.
+Documentation for beat recipes can be found in the `docs/` directory of the package. The main tools (`beatrecipe_processor.py` and `segment_song.py`) have been tested and are functional. Additional scripts in the `scripts/` directory may be of interest but have not been recently tested.
 
 ## License
 
