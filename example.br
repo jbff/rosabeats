@@ -5,7 +5,7 @@
 # and is distributed under the Creative Commons Public Domain License (CC0)
 # Thanks to the creator.
 
-file /sto/prj/neuroperm/beatrecipes/audio/play_house-random_drop.mp3
+file audio/play_house-random_drop.mp3
 beats_bar 8 0
 # total beats = 308
 # total bars = 38 (beats 0-304)
