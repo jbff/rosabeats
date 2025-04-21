@@ -55,7 +55,6 @@ setup(
         "console_scripts": [
             "beatrecipe-processor=rosabeats.beatrecipe_processor:main",
             "segment-song=rosabeats.segment_song:main",
-            "segment-song-segmentino=rosabeats.segment_song_segmentino:main",
         ],
     },
 )

@@ -7,8 +7,21 @@ import random
 import time
 import joblib
 
-import vamp
-import ffms2
+# Optional imports for vamp and ffms2
+try:
+    import vamp
+    VAMP_AVAILABLE = True
+except ImportError:
+    VAMP_AVAILABLE = False
+    vamp = None
+
+try:
+    import ffms2
+    FFMS2_AVAILABLE = True
+except ImportError:
+    FFMS2_AVAILABLE = False
+    ffms2 = None
+
 import numpy as np
 import scipy
 import sklearn
@@ -202,11 +215,12 @@ class rosabeats:
         if ext == ".wav":
             rosabeats.d_print("loading via librosa")
             self.load_librosa()
-
         elif ext == ".ogg":
             rosabeats.d_print("loading via soundfile")
             self.load_soundfile()
         else:
+            if not FFMS2_AVAILABLE:
+                raise ImportError("ffms2 is required for loading non-wav/ogg files. Please install ffms2.")
             rosabeats.d_print("loading via ffms")
             self.load_ffms()
 
@@ -286,8 +300,32 @@ class rosabeats:
 
         self.save_features()
 
-    def segment(self, redo=False):
-        self.segment_laplacian(redo=redo)
+    def segment(self, method="laplacian", redo=False):
+        """Segment the audio file using the specified method.
+        
+        Args:
+            method (str): The segmentation method to use. Options are:
+                - "laplacian": Use librosa's Laplacian segmentation (default)
+                - "segmentino": Use the Segmentino plugin (requires vamp)
+            redo (bool): If True, force re-segmentation even if segments exist
+        
+        Returns:
+            None
+        
+        Raises:
+            ValueError: If an invalid method is specified
+            ImportError: If method="segmentino" but vamp is not available
+        """
+        if method not in ["laplacian", "segmentino"]:
+            raise ValueError("method must be either 'laplacian' or 'segmentino'")
+            
+        if method == "segmentino" and not VAMP_AVAILABLE:
+            raise ImportError("vamp is required for segmentino segmentation. Please install vamp.")
+            
+        if method == "laplacian":
+            self.segment_laplacian(redo)
+        else:
+            self.segment_segmentino(redo)
 
     def segment_laplacian(self, redo=False):
         if self.beat_timings is None:
@@ -461,7 +499,15 @@ class rosabeats:
             return
 
         rosabeats.d_print("segmenting song...")
-        segmented = vamp.collect(self.data, self.sr, "segmentino:segmentino")
+        try:
+            segmented = vamp.collect(self.data, self.sr, "segmentino:segmentino")
+        except Exception as e:
+            rosabeats.d_print(f"Error loading segmentino plugin: {str(e)}")
+            raise RuntimeError(f"Failed to run segmentino segmentation: {str(e)}") from e
+        
+        if not segmented or "list" not in segmented:
+            rosabeats.d_print("Segmentino plugin returned invalid data")
+            raise RuntimeError("Segmentino plugin failed to return valid segment data")
 
         self.total_segments = len(segmented["list"])
         self.segments = self.total_segments * [None]
@@ -537,10 +583,13 @@ class rosabeats:
                     if beat_final_first >= seg_first and beat_final_first <= seg_last:
                         # last beat starts in segment
                         #                       rosabeats.d_print(" BAR %d is in segment %d" % (bar_num, idx))
-                        seg["bars"].append(bar_num)
+                        seg["bars"].append(int(bar_num))
 
-                        # alternatively, bar_beat_First = eslf.beat_slices[beat_num_final][0]
-                        # and then check that that is <= segmente, meaning last beat of bar STARTS inside segment
+                        # alternatively, bar_beat_First = self.beat_slices[beat_num_final][0]
+                        # and then check that that is <= segment, meaning last beat of bar STARTS inside segment
+        import pprint #TODO# remove
+        pprint.pprint(self.segments) #TODO# remove
+
 
         self.save_features()
 
