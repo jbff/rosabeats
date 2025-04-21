@@ -1,6 +1,6 @@
 # rosabeats
 
-This repository contains the rosabeats Python library that allows for audio beat detection, segmentation, and remixing.
+This repository contains the rosabeats Python library that allows for audio beat detection, segmentation, and remixing. It leverages the power of librosa and other audio processing libraries to enable precise beat tracking, song segmentation, and creative audio manipulation. This repository contains the core library code and various tools including scripts to segment songs, create and play/save beat "recipes", and a command line interpreter for interactive beat manipulation.
 
 I wrote this because for some reason I was too dense to figure out how to use [Amen](https://github.com/algorithmic-music-exploration/amen) to replicate in Python something like the Infinite Jukebox. That was the initial impetus, anyway. This code is not elegant. If I was too dense to figure out how to use amen, even with the code and examples in front of me, you can bet that I did not write elegant code. But it does work and I have enjoyed playing with it.
 
