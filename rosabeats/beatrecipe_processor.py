@@ -456,13 +456,17 @@ class beatrecipe_processor(rosabeats):
             self.recipe_lines = unprocessed_lines
 
 
-def main(args):
+def main(args=None):
     output_play = False
     output_save = False
     output_beats = False
     loglevel = logging.INFO
     recipes = []
-
+    
+    # If no args provided, use sys.argv (skipping the script name at index 0)
+    if args is None:
+        args = sys.argv[1:]
+        
     for arg in args:
         if arg == "-p" or arg == "--play":
             output_play = True
@@ -516,4 +520,4 @@ def main(args):
             raise e
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

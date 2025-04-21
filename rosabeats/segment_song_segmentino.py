@@ -5,20 +5,30 @@ import os.path
 
 from rosabeats import rosabeats
 
-def main(args):
-    # the next 17 lines should be replaced with an argsparser
-    try:
-        infile = args[0]
-    except:
+def main(args=None):
+    infile = None
+    outfile = None
+    
+    # If no args provided, use sys.argv (skipping the script name at index 0)
+    if args is None:
+        args = sys.argv[1:]
+    
+    # Check if we have at least an input file
+    if len(args) < 1:
         print("Must supply valid input file")
         sys.exit(1)
+        
+    # First argument is always the input file
+    infile = args[0]
+    
+    # Additional arguments are optional
     try:
         beatsper = int(args[1])
-    except:
+    except (IndexError, ValueError):
         beatsper = 8
     try:
         firstfull = int(args[2])
-    except:
+    except (IndexError, ValueError):
         firstfull = 0
 
     basename = os.path.basename(infile)
@@ -86,4 +96,4 @@ def main(args):
 #           f.write("rest 8\n")
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
