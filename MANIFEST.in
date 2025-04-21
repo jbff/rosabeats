@@ -1,0 +1,17 @@
+# Include essential files
+include README.md
+include LICENSE.md
+include requirements.txt
+
+# Include documentation
+recursive-include docs *
+
+# Exclude development and personal directories
+exclude MINE/*
+prune MINE
+prune venv
+prune __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude .git*
+

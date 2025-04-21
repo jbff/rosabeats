@@ -30,16 +30,26 @@ I wrote most of this code in 2018-2019 and made some additions through 2021. I c
 
 ### Prerequisites
 
-- Python 3.6+ (Tested most recently with Python 3.13.2)
+- Python 3.6+ (Tested most recently with Python 3.11.12 and 3.13.2)
 - ffms2 libraries (On Fedora: `dnf install ffms2`; tested most recently with ffms-5.0)
 
-### Dependencies
+### Installing the Package
 
-Install the required Python packages:
-
+1. Clone the repository:
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/jbff/rosabeats.git
+cd rosabeats
 ```
+
+2. Install the package using setup.py:
+```bash
+python setup.py install
+```
+
+This will install the package and its dependencies, and make the following command-line tools available:
+- `beatrecipe-processor`: Process beat recipes
+- `segment-song`: Segment songs using librosa's Laplacian segmentation
+- `segment-song-segmentino`: Segment songs using the Segmentino plugin
 
 ### Optional: Vamp Plugins for Segmentino
 
@@ -48,12 +58,14 @@ If you want to use the Segmentino-based segmentation:
 1. Download and install the Vamp plugin SDK
 2. Install the Segmentino plugin
 
-### Using rosabeats and beat recipes
+### Using rosabeats
 
-- There is some documentation on beat recipes in docs/
-- When I have the opportunity to revisit and clean up (ha!) the code, I will have more to say
-- beatrecipe_processor.py, segment_song.py, and segment_song_segmentino.py have been tested and are functional
-- scripts in scripts/ may be of interest but I have not had the opportunity to test them lately
+The package can be imported in Python as:
+```python
+import rosabeats
+```
+
+Documentation for beat recipes can be found in the `docs/` directory of the package. The main tools (`beatrecipe_processor.py`, `segment_song.py`, and `segment_song_segmentino.py`) have been tested and are functional. Additional scripts in the `scripts/` directory may be of interest but have not been recently tested.
 
 ## License
 
