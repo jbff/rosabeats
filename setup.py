@@ -12,13 +12,13 @@ with open("rosabeats/__init__.py", "r") as f:
     if version_match:
         version = version_match.group(1)
     else:
-        version = '0.1.0'
+        version = '0.1.1'
 
 # Read the long description from README.md
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-# Get the requirements
+# Get the base requirements
 with open("requirements.txt", "r") as f:
     requirements = [line.strip() for line in f.readlines() if line.strip()]
 
@@ -26,7 +26,6 @@ setup(
     name="rosabeats",
     version=version,
     author="John Fleming",
-    author_email="john@example.com",  # Replace with actual email if available
     description="Audio beat detection, segmentation, and remixing library using librosa",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -51,6 +50,11 @@ setup(
     ],
     python_requires=">=3.6",
     install_requires=requirements,
+    extras_require={
+        'ffms2': ['ffms2'],  # Optional dependency for audio file handling
+        'vamp': ['vamp'],    # Optional dependency for Vamp plugin support
+        'all': ['ffms2', 'vamp'],  # Install all optional dependencies
+    },
     entry_points={
         "console_scripts": [
             "beatrecipe-processor=rosabeats.beatrecipe_processor:main",

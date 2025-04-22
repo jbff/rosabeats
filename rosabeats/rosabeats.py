@@ -30,14 +30,66 @@ import soundfile as sf
 import sounddevice as sd
 
 class rosabeats:
+    """A class for analyzing and manipulating audio files, particularly focused on beat tracking and segmentation.
+    
+    This class provides functionality for:
+    - Loading and processing audio files
+    - Beat tracking and tempo analysis
+    - Audio segmentation
+    - Playback and remixing capabilities
+    - Beat and bar manipulation
+    
+    Attributes:
+        debug (bool): Class-level debug flag for controlling debug output
+        ffms_source: FFMS2 audio source object
+        data: Audio data array
+        sr: Sample rate
+        channels: Number of audio channels
+        dtype: Data type of audio samples
+        mono: Mono version of audio data
+        beat_timings: Array of beat timings
+        tempo: Estimated tempo in BPM
+        beat_slices: List of beat slice boundaries
+        total_beats: Total number of beats detected
+        bars: Bar information
+        total_segments: Total number of segments
+        segments: List of segment information
+        beatsperbar: Number of beats per bar
+        firstfullbar: Index of first full bar
+        pulse_device: PulseAudio device index
+        stream: Audio output stream
+        remix: Remix buffer
+        remix_index: Current position in remix buffer
+        remix_output_file: Output file for remix
+        beats_output_file: Output file for beat information
+        beats_output: File handle for beat output
+        output_play: Flag for enabling playback
+        output_save: Flag for enabling saving
+        output_beats: Flag for enabling beat output
+        sourcefile: Path to source audio file
+        saved_features_enabled: Flag for saved features functionality
+    """
+    
     debug = False
 
     @classmethod
     def d_print(cls, *args, **kwargs):
+        """Print debug messages if debug mode is enabled.
+        
+        Args:
+            *args: Variable length argument list to print
+            **kwargs: Arbitrary keyword arguments passed to print()
+        """
         if cls.debug:
             print("-> ", "".join(map(str, args)), **kwargs, flush=True)
 
     def __init__(self, infile=None, debug=False):
+        """Initialize the rosabeats object.
+        
+        Args:
+            infile (str, optional): Path to input audio file
+            debug (bool, optional): Enable debug mode
+        """
         rosabeats.debug = debug
 
         self.ffms_source = None
@@ -75,12 +127,31 @@ class rosabeats:
             self.setfile(infile)
 
     def beat_starts_bar(self, beatnum):
+        """Check if a beat number starts a new bar.
+        
+        Args:
+            beatnum (int): Beat number to check
+            
+        Returns:
+            int or None: Bar number if beat starts a bar, None otherwise
+        """
         if (beatnum - self.firstfullbar) % self.beatsperbar == 0:
             return (beatnum - self.firstfullbar) / self.beatsperbar
         else:
             return None
 
     def bar_containing_beat(self, beatnum):
+        """Get the bar number and beat position within bar for a given beat number.
+        
+        Args:
+            beatnum (int): Beat number to analyze
+            
+        Returns:
+            tuple: (bar_number, beat_position_in_bar)
+            
+        Raises:
+            Exception: If beat number is out of range
+        """
         if beatnum > self.total_beats - 1 or beatnum < 0:
             raise Exception("%d is outside possible range" % beatnum)
 
@@ -97,29 +168,49 @@ class rosabeats:
         return bar, rem
 
     def set_remix_output_file(self, wavfile):
+        """Set the output file for the remix.
+        
+        Args:
+            wavfile (str): Path to output WAV file
+        """
         self.remix_output_file = wavfile
 
     def disable_output_beats(self):
+        """Disable beat output functionality."""
         self.output_beats = False
 
     def disable_output_save(self):
+        """Disable save output functionality."""
         self.output_save = False
 
     def disable_output_play(self):
+        """Disable playback functionality."""
         self.output_play = False
 
     def enable_output_beats(self, beatsfile):
+        """Enable beat output functionality and set output file.
+        
+        Args:
+            beatsfile (str): Path to output beats file
+        """
         self.set_beats_output_file(beatsfile)
         self.output_beats = True
 
     def enable_output_save(self, wavfile):
+        """Enable save output functionality and set output file.
+        
+        Args:
+            wavfile (str): Path to output WAV file
+        """
         self.set_remix_output_file(wavfile)
         self.output_save = True
 
     def enable_output_play(self):
+        """Enable playback functionality."""
         self.output_play = True
 
     def reset_remix(self):
+        """Reset the remix buffer to initial state."""
         if self.sr is None:
             self.load()
 
@@ -132,6 +223,7 @@ class rosabeats:
         self.remix_index = 0
 
     def extend_remix(self):
+        """Extend the remix buffer by adding more space."""
         if self.sr is None:
             self.load()
 
@@ -149,10 +241,16 @@ class rosabeats:
         rosabeats.d_print("******done extending available space for remixed beats")
 
     def save_remix(self):
+        """Save the remix to the output file."""
         yt, index = librosa.effects.trim(self.remix)
         sf.write(self.remix_output_file, yt.T, self.sr, "PCM_16")
 
     def setfile(self, infile):
+        """Set the input audio file and initialize related paths.
+        
+        Args:
+            infile (str): Path to input audio file
+        """
         self.sourcefile = os.path.abspath(infile)
         dname = os.path.dirname(self.sourcefile)
         bname = os.path.basename(self.sourcefile)
@@ -160,6 +258,7 @@ class rosabeats:
         self.saved_features = os.path.join(dname, "." + stem + ".pkl")
 
     def find_pulseaudio_device(self):
+        """Find and set the PulseAudio device for playback."""
         dev_count = 0
         for dev_name in [x["name"] for x in sd.query_devices()]:
             if dev_name == "pulse":
@@ -171,6 +270,7 @@ class rosabeats:
             sd.default.device = self.pulse_device
 
     def setup_playback(self):
+        """Set up audio playback configuration."""
         if self.sr is None:
             self.load()
 
@@ -184,6 +284,7 @@ class rosabeats:
         self.stream.start()
 
     def init_outputs(self):
+        """Initialize all enabled output methods."""
         if self.output_play:
             self.setup_playback()
         if self.output_save:
@@ -192,6 +293,7 @@ class rosabeats:
             self.start_writing_beats_output()
 
     def load_ffms(self):
+        """Load audio file using FFMS2 library."""
         self.ffms_source = ffms2.AudioSource(self.sourcefile)
         self.ffms_source.init_buffer(count=self.ffms_source.properties.NumSamples)
         self.data = self.ffms_source.get_audio(start=0).T
@@ -200,17 +302,24 @@ class rosabeats:
         self.dtype = type(self.data[0][0])
 
     def load_soundfile(self):
+        """Load audio file using soundfile library."""
         self.data, self.sr = sf.read(self.sourcefile, dtype="float32")
         self.data = self.data.T
         self.channels = self.data.ndim
         self.dtype = "float32"
 
     def load_librosa(self):
+        """Load audio file using librosa library."""
         self.data, self.sr = librosa.load(self.sourcefile, sr=None, mono=False)
         self.channels = self.data.ndim
         self.dtype = type(self.data[0][0])
 
     def load(self):
+        """Load audio file using appropriate library based on file extension.
+        
+        Raises:
+            ImportError: If FFMS2 is required but not available
+        """
         base, ext = os.path.splitext(self.sourcefile)
         if ext == ".wav":
             rosabeats.d_print("loading via librosa")
@@ -227,15 +336,22 @@ class rosabeats:
         self.data, _ = librosa.effects.trim(self.data)
 
     def mix_to_mono(self):
+        """Convert audio data to mono."""
         if self.data is None:
             self.load()
 
         self.mono = librosa.to_mono(self.data)
 
     def has_saved_features(self):
+        """Check if saved features file exists.
+        
+        Returns:
+            bool: True if saved features file exists and is enabled
+        """
         return self.saved_features_enabled and os.path.isfile(self.saved_features)
 
     def remove_features_file(self):
+        """Remove the saved features file if it exists."""
         if os.path.isfile(self.saved_features):
             rosabeats.d_print("removing %s" % self.saved_features)
             os.unlink(self.saved_features)
@@ -243,6 +359,7 @@ class rosabeats:
             rosabeats.d_print("no features file found")
 
     def save_features(self):
+        """Save extracted features to file."""
         rosabeats.d_print("saving features...")
 
         features = dict()
@@ -261,6 +378,7 @@ class rosabeats:
             joblib.dump(features, f)
 
     def load_saved_features(self):
+        """Load saved features from file."""
         rosabeats.d_print("loading features...")
 
         with open(self.saved_features, "rb") as f:
@@ -278,6 +396,12 @@ class rosabeats:
         self.segments = features["segments"]
 
     def track_beats(self, beatsper=8, firstfull=0):
+        """Track beats in the audio file.
+        
+        Args:
+            beatsper (int, optional): Number of beats per bar
+            firstfull (int, optional): Index of first full bar
+        """
         if self.has_saved_features():
             self.load_saved_features()
             return
@@ -304,16 +428,11 @@ class rosabeats:
         """Segment the audio file using the specified method.
         
         Args:
-            method (str): The segmentation method to use. Options are:
-                - "laplacian": Use librosa's Laplacian segmentation (default)
-                - "segmentino": Use the Segmentino plugin (requires vamp)
-            redo (bool): If True, force re-segmentation even if segments exist
-        
-        Returns:
-            None
-        
+            method (str, optional): Segmentation method to use ("laplacian" or "segmentino")
+            redo (bool, optional): Force re-segmentation even if segments exist
+            
         Raises:
-            ValueError: If an invalid method is specified
+            ValueError: If invalid method is specified
             ImportError: If method="segmentino" but vamp is not available
         """
         if method not in ["laplacian", "segmentino"]:
@@ -328,6 +447,11 @@ class rosabeats:
             self.segment_segmentino(redo)
 
     def segment_laplacian(self, redo=False):
+        """Segment audio using Laplacian segmentation method.
+        
+        Args:
+            redo (bool, optional): Force re-segmentation even if segments exist
+        """
         if self.beat_timings is None:
             self.track_beats()
 
@@ -489,6 +613,14 @@ class rosabeats:
         self.save_features()
 
     def segment_segmentino(self, redo=False):
+        """Segment audio using the Segmentino plugin.
+        
+        Args:
+            redo (bool, optional): Force re-segmentation even if segments exist
+            
+        Raises:
+            RuntimeError: If segmentino plugin fails to return valid data
+        """
         if self.data is None:
             self.load()
 
@@ -531,6 +663,11 @@ class rosabeats:
         self.save_features()
 
     def segmentize_beats(self):
+        """Associate beats and bars with segments.
+        
+        Raises:
+            Exception: If segments or beat timings are not available
+        """
         if self.segments is None or self.beat_timings is None:
             raise Exception("must segment() and track beats before segmentizing beats")
 
@@ -594,17 +731,25 @@ class rosabeats:
         self.save_features()
 
     def divide_bars(self):
+        """Deprecated method that no longer performs any action."""
         rosabeats.d_print("warning: divide_bars() no longer does anything")
 
     def set_beats_output_file(self, beatsfile):
+        """Set the output file for beat information.
+        
+        Args:
+            beatsfile (str): Path to output beats file
+        """
         self.beats_output_file = beatsfile
 
     def set_default_beats_output_file(self):
+        """Set default beats output file based on source filename."""
         basename = os.path.basename(self.sourcefile)
         stub, ext = os.path.splitext(basename)
         self.set_beats_output_file(stub + "_beats.br")
 
     def start_writing_beats_output(self):
+        """Initialize beat output file and write header information."""
         if self.beats_output_file == None:
             self.set_default_beats_output_file()
 
@@ -615,6 +760,7 @@ class rosabeats:
         )
 
     def shutdown(self):
+        """Clean up and close all output streams."""
         if self.output_play:
             self.stream.close()
         if self.output_save:
@@ -623,12 +769,27 @@ class rosabeats:
             self.beats_output.close()
 
     def write_out(self, text):
+        """Write text to beats output file.
+        
+        Args:
+            text (str): Text to write
+        """
         if self.beats_output == None:
             self.start_writing_beats_output()
 
         self.beats_output.write("%s\n" % text)
 
     def play_beat(self, b, silent=False, divisor=1):
+        """Play a single beat.
+        
+        Args:
+            b (int): Beat number to play
+            silent (bool, optional): Suppress console output
+            divisor (int, optional): Beat division factor
+            
+        Raises:
+            Exception: If beat tracking has not been performed
+        """
         if self.beat_slices is None:
             raise Exception("must track beats before playing beats")
 
@@ -691,15 +852,31 @@ class rosabeats:
                 self.write_out("beats %d" % b)
 
     def play_beats(self, beats):
+        """Play a sequence of beats.
+        
+        Args:
+            beats (list): List of beat numbers to play
+        """
         for beat in beats:
             self.play_beat(beat)
         print(flush=True)
 
     def play_bars(self, bars, reverse=False):
+        """Play a sequence of bars.
+        
+        Args:
+            bars (list): List of bar numbers to play
+            reverse (bool, optional): Play bars in reverse order
+        """
         for bar in bars:
             self.play_bar(bar, reverse=reverse)
 
     def rest(self, beats):
+        """Add silence for specified number of beats.
+        
+        Args:
+            beats (float): Number of beats to rest
+        """
         sec_per_beat = float(1 / (self.tempo / 60))
         sec_of_silence = sec_per_beat * beats
         samples_of_silence = int(sec_of_silence * self.sr)
@@ -724,6 +901,16 @@ class rosabeats:
             self.write_out("rest %g" % beats)
 
     def play_bar(self, m, reverse=False, silent=False):
+        """Play a single bar.
+        
+        Args:
+            m (int): Bar number to play
+            reverse (bool, optional): Play bar in reverse order
+            silent (bool, optional): Suppress console output
+            
+        Raises:
+            Exception: If beat tracking has not been performed
+        """
         if self.beatsperbar is None or self.beat_slices is None:
             raise Exception("must track beats before you can play bar")
 
