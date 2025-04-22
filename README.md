@@ -46,6 +46,34 @@ cd rosabeats
 python setup.py install
 ```
 
+3. Installing optional dependencies:
+
+rosabeats has optional dependencies that can be installed based on your needs:
+
+Using pip:
+```bash
+# Install with Vamp plugin support
+pip install -e .[vamp]
+
+# Install with ffms2 support for additional audio formats
+pip install -e .[ffms2]
+
+# Install with all optional dependencies
+pip install -e .[all]
+```
+
+Using setup.py:
+```bash
+# Install with Vamp plugin support
+python setup.py install --extras vamp
+
+# Install with ffms2 support
+python setup.py install --extras ffms2
+
+# Install with all optional dependencies
+python setup.py install --extras all
+```
+
 This will install the package and its dependencies, and make the following command-line tools available:
 - `beatrecipe-processor`: Process beat recipes
 - `segment-song`: Segment songs using librosa's Laplacian segmentation

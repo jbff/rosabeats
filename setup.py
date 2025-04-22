@@ -12,7 +12,7 @@ with open("rosabeats/__init__.py", "r") as f:
     if version_match:
         version = version_match.group(1)
     else:
-        version = '0.1.1'
+        version = '0.1.2'
 
 # Read the long description from README.md
 with open("README.md", "r") as fh:
