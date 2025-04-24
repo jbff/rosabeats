@@ -12,7 +12,7 @@ with open("rosabeats/__init__.py", "r") as f:
     if version_match:
         version = version_match.group(1)
     else:
-        version = '0.1.2'
+        version = '0.1.3'
 
 # Read the long description from README.md
 with open("README.md", "r") as fh:
@@ -59,6 +59,8 @@ setup(
         "console_scripts": [
             "beatrecipe-processor=rosabeats.beatrecipe_processor:main",
             "segment-song=rosabeats.segment_song:main",
+            "beatswitch=rosabeats.beatswitch:main",
+            "rosabeats-shell=rosabeats.rosabeats_shell:main",
         ],
     },
 )
