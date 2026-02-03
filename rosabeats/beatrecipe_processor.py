@@ -66,6 +66,13 @@ class beatrecipe_processor(rosabeats):
     def parse_error(self, error_info):
         self.log.error("%s" % error_info)
 
+    def parse_command(self, cmd):
+        """Split a command line into (verb, args). args is a list of remaining tokens."""
+        parts = cmd.split()
+        if not parts:
+            return None, []
+        return parts[0], parts[1:]
+
     def read_beatrecipe(self):
         self.recipe_lines = list()
         with open(self.recipe, "r") as f:
@@ -76,11 +83,18 @@ class beatrecipe_processor(rosabeats):
 
                 for cmd in lines:
                     self.recipe_lines.append(cmd)
+                    # Load macro definitions at read time so macros are available after init
+                    if cmd.strip().startswith("def "):
+                        try:
+                            _, rest = cmd.split(maxsplit=1)
+                            name, value = rest.split(maxsplit=1)
+                            self.define_macro(name, value)
+                        except Exception:
+                            pass
 
     def define_macro(self, name, value):
         if self.macros.get(name) is not None:
-            self.parse_error("macro %s already defined" % name)
-            return False
+            self.log.debug("macro %s redefined" % name)
         self.macros[name] = value
         return True
 

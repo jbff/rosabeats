@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import sys
 import os.path
 import random
@@ -8,7 +9,7 @@ import rosabeats
 
 
 def parse_range(arg):
-    """Parse a range argument like '8' or '8-16' into a list of integers.
+    """Parse a range argument like '8' or '8-16' or '-3-2' into a list of integers.
 
     Returns list of ints, or None on error.
     """
@@ -16,17 +17,13 @@ def parse_range(arg):
     if not arg:
         return None
 
-    try:
-        if "-" in arg:
-            parts = arg.split("-", maxsplit=1)
-            start = int(parts[0])
-            stop = int(parts[1])
-        else:
-            start = int(arg)
-            stop = start
-    except (ValueError, IndexError):
-        print(f"invalid range: '{arg}' - use e.g. '8' or '8-16'")
+    # Support negative numbers: match optional minus, digits, optional -stop
+    m = re.match(r"^(-?\d+)(?:-(-?\d+))?$", arg)
+    if not m:
+        print(f"invalid range: '{arg}' - use e.g. '8' or '8-16' or '-3-2'")
         return None
+    start = int(m.group(1))
+    stop = int(m.group(2)) if m.group(2) is not None else start
 
     if start > stop:
         step = -1

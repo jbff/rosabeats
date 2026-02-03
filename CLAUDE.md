@@ -26,7 +26,15 @@ uv sync --extra ffms2         # With ffms2
 - `beatswitch <audio> [options]` - Generate beat recipes with alternating patterns
 - `rosabeats-shell` - Interactive shell for beat manipulation
 
-### No test suite exists
+### Testing
+```bash
+pip install -e .[dev]         # Install with test dependencies
+pytest                        # Run all tests
+pytest -v                     # Verbose output
+pytest tests/test_shell.py    # Run specific test file
+pytest -k "downbeat"          # Run tests matching pattern
+pytest --cov=rosabeats        # Run with coverage report
+```
 
 ## Architecture
 
