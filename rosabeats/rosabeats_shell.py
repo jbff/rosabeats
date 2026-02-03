@@ -299,6 +299,10 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
         name = args[0]
         value = args[1]
 
+        # Strip inline comments
+        if "#" in value:
+            value = value.split("#")[0].strip()
+
         self.define_macro(name, value)
         print(f"defined {name} => {value}")
 
@@ -380,6 +384,7 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
             # Skip empty lines and comments
             if not line or line.startswith("#"):
                 continue
+            # Strip inline comments (but not inside the def command - that's handled separately)
             # Execute the command
             self.onecmd(line)
 
