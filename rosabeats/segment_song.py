@@ -134,7 +134,7 @@ def main(args=None):
     parser.add_argument('--downbeat', type=int, default=None,
                        help='Beat index of first downbeat (default: 0)')
     parser.add_argument('--auto-downbeat', action='store_true',
-                       help='Auto-detect downbeat using heuristics (or madmom if available)')
+                       help='Auto-detect downbeat using DBN')
     parser.add_argument('--output', help='Output file path (default: input filename with .bri extension)')
     parser.add_argument('--debug', action='store_true',
                        help='Enable debug mode for detailed processing information')

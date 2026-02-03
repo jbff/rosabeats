@@ -394,7 +394,7 @@ class rosabeats:
 
         This uses a heuristic approach: finds the beat offset that maximizes
         the sum of onset strengths at assumed downbeat positions. This is not
-        as accurate as neural network approaches (e.g., madmom) but works
+        as accurate as the DBN approach but works
         reasonably well for music with clear downbeats.
 
         Args:
@@ -436,8 +436,8 @@ class rosabeats:
     def detect_downbeat_dbn(self, beatsper):
         """Detect downbeat using Dynamic Bayesian Network approach.
 
-        This uses a DBN/HMM approach inspired by madmom's DBNDownBeatTrackingProcessor,
-        but implemented in pure Python without external dependencies.
+        This uses a DBN/HMM approach for downbeat detection,
+        implemented in pure Python.
 
         Args:
             beatsper (int): Number of beats per bar
@@ -468,7 +468,7 @@ class rosabeats:
         Args:
             beatsper (int, optional): Number of beats per bar (default: 8)
             downbeat (int, optional): Beat index of first downbeat (default: 0).
-                Use detect_downbeat() or detect_downbeat_madmom() for auto-detection.
+                Use detect_downbeat() or detect_downbeat_dbn() for auto-detection.
         """
         if self.has_saved_features():
             self.load_saved_features()

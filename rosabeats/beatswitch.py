@@ -220,7 +220,7 @@ def parse_args():
     )
     parser.add_argument(
         "--auto-downbeat", action="store_true",
-        help="Auto-detect downbeat using heuristics (or madmom if available)"
+        help="Auto-detect downbeat using DBN"
     )
     parser.add_argument(
         "--debug", action="store_true",
