@@ -1,6 +1,0 @@
-librosa==0.11.0
-soundfile==0.13.1
-sounddevice==0.5.1
-numpy==2.2.4
-scipy==1.15.2
-scikit-learn==1.6.1

@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+*.wav
+*.ogg
+.*.pkl
+venv
+.*
+MINE
+*.egg-info/
+dist/
+build/

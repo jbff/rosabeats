@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rosabeats"
+dynamic = ["version"]
+description = "Audio beat detection, segmentation, and remixing library using librosa"
+readme = "README.md"
+license = "ISC"
+requires-python = ">=3.9"
+authors = [
+    { name = "John Fleming" }
+]
+keywords = ["audio", "beat", "detection", "segmentation", "remixing", "librosa", "music"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+]
+dependencies = [
+    "librosa>=0.11.0,<1.0",
+    "soundfile>=0.13.0,<1.0",
+    "sounddevice>=0.5.0,<1.0",
+    "numpy>=2.0,<3.0",
+    "scipy>=1.15,<2.0",
+    "scikit-learn>=1.5,<2.0",
+]
+
+[project.optional-dependencies]
+ffms2 = ["ffms2"]
+vamp = ["vamp"]
+all = ["ffms2", "vamp"]
+
+[project.scripts]
+beatrecipe-processor = "rosabeats.beatrecipe_processor:main"
+segment-song = "rosabeats.segment_song:main"
+beatswitch = "rosabeats.beatswitch:main"
+rosabeats-shell = "rosabeats.rosabeats_shell:main"
+
+[project.urls]
+Homepage = "https://github.com/jbff/rosabeats"
+Repository = "https://github.com/jbff/rosabeats"
+
+[tool.setuptools.dynamic]
+version = {attr = "rosabeats.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+rosabeats = ["docs/*"]

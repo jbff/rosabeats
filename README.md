@@ -30,10 +30,26 @@ I wrote most of this code in 2018-2019 and made some additions through 2021. I c
 
 ### Prerequisites
 
-- Python 3.6+ (Tested most recently with Python 3.11.12 and 3.13.2)
+- Python 3.9+ (Tested most recently with Python 3.11.12 and 3.13.2)
 - ffms2 libraries (On Fedora: `dnf install ffms2`; tested most recently with ffms-5.0)
 
-### Installing the Package
+### Installing from PyPI
+
+```bash
+# Basic install
+pip install rosabeats
+
+# With optional dependencies
+pip install rosabeats[all]
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+```bash
+uv pip install rosabeats
+uv pip install rosabeats[all]
+```
+
+### Installing from Source
 
 1. Clone the repository:
 ```bash
@@ -41,42 +57,36 @@ git clone https://github.com/jbff/rosabeats.git
 cd rosabeats
 ```
 
-2. Install the package using setup.py:
+2. Install the package:
 ```bash
-python setup.py install
+pip install .
+```
+
+Or for development (editable install):
+```bash
+pip install -e .
 ```
 
 3. Installing optional dependencies:
 
 rosabeats has optional dependencies that can be installed based on your needs:
 
-Using pip:
 ```bash
 # Install with Vamp plugin support
-pip install -e .[vamp]
+pip install .[vamp]
 
 # Install with ffms2 support for additional audio formats
-pip install -e .[ffms2]
+pip install .[ffms2]
 
 # Install with all optional dependencies
-pip install -e .[all]
-```
-
-Using setup.py:
-```bash
-# Install with Vamp plugin support
-python setup.py install --extras vamp
-
-# Install with ffms2 support
-python setup.py install --extras ffms2
-
-# Install with all optional dependencies
-python setup.py install --extras all
+pip install .[all]
 ```
 
 This will install the package and its dependencies, and make the following command-line tools available:
 - `beatrecipe-processor`: Process beat recipes
 - `segment-song`: Segment songs using librosa's Laplacian segmentation
+- `beatswitch`: Generate beat recipes with alternating patterns
+- `rosabeats-shell`: Interactive shell for beat manipulation
 
 ### Optional: Vamp Plugins for Segmentino
 
