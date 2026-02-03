@@ -11,7 +11,7 @@ Rosabeats is a Python library for audio beat detection, segmentation, and remixi
 ### Installation
 ```bash
 pip install -e .              # Basic install
-pip install -e .[all]         # With all optional deps (ffms2, vamp)
+pip install -e .[ffms2]       # With ffms2 for additional audio formats
 ```
 
 ### CLI Tools (available after install)
@@ -60,11 +60,10 @@ Full syntax: `docs/beatrecipe_docs.txt`
 
 - Beat/bar indices are 0-based
 - `first_full_bar_beat` in beats_bar accounts for pickup beats before first full bar
-- Segmentation methods: `laplacian` (librosa, default), `segmentino` (requires vamp plugin)
+- Segmentation uses Laplacian spectral clustering (via librosa/sklearn)
 - Audio loaded via librosa; ffms2 optional for additional format support
 - Debug mode: set `rosabeats_instance.debug = True` or use `-debug` CLI flags
 
 ## Optional Dependencies
 
 - `ffms2` - Additional audio format support beyond librosa defaults
-- `vamp` - Required for segmentino segmentation method

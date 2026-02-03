@@ -12,9 +12,7 @@ I wrote most of this code in 2018-2019 and made some additions through 2021. I c
 
 - **Beat Detection**: Automatically detect beats and tempo in audio files
 - **Bar Analysis**: Group beats into bars with configurable beats-per-bar
-- **Audio Segmentation**: Segment songs into structural parts using:
-  - Laplacian segmentation (powered by librosa)
-  - Segmentino (using Vamp plugins) 
+- **Audio Segmentation**: Segment songs into structural parts using Laplacian spectral clustering 
 - **Audio Remixing**: Create remixes by manipulating beats and bars:
   - Play individual beats or ranges of beats
   - Play entire bars or ranges of bars
@@ -69,31 +67,16 @@ pip install -e .
 
 3. Installing optional dependencies:
 
-rosabeats has optional dependencies that can be installed based on your needs:
-
 ```bash
-# Install with Vamp plugin support
-pip install .[vamp]
-
 # Install with ffms2 support for additional audio formats
 pip install .[ffms2]
-
-# Install with all optional dependencies
-pip install .[all]
 ```
 
 This will install the package and its dependencies, and make the following command-line tools available:
 - `beatrecipe-processor`: Process beat recipes
-- `segment-song`: Segment songs using librosa's Laplacian segmentation
+- `segment-song`: Segment songs and track beats
 - `beatswitch`: Generate beat recipes with alternating patterns
 - `rosabeats-shell`: Interactive shell for beat manipulation
-
-### Optional: Vamp Plugins for Segmentino
-
-If you want to use the Segmentino-based segmentation:
-
-1. Download and install the Vamp plugin SDK
-2. Install the Segmentino plugin
 
 ### Using rosabeats
 
@@ -117,6 +100,5 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 ## Acknowledgments
 
 - [librosa](https://librosa.org/) for audio analysis
-- [Vamp plugins](https://www.vamp-plugins.org/) for audio segmentation
 - [Amen](https://github.com/algorithmic-music-exploration/amen) was the original inspiration
 

@@ -7,14 +7,7 @@ import random
 import time
 import joblib
 
-# Optional imports for vamp and ffms2
-try:
-    import vamp
-    VAMP_AVAILABLE = True
-except ImportError:
-    VAMP_AVAILABLE = False
-    vamp = None
-
+# Optional import for ffms2
 try:
     import ffms2
     FFMS2_AVAILABLE = True
@@ -424,32 +417,14 @@ class rosabeats:
 
         self.save_features()
 
-    def segment(self, method="laplacian", redo=False, max_clusters=None):
-        """Segment the audio file using the specified method.
+    def segment(self, redo=False, max_clusters=48):
+        """Segment the audio file using Laplacian spectral clustering.
 
         Args:
-            method (str, optional): Segmentation method to use ("laplacian" or "segmentino")
             redo (bool, optional): Force re-segmentation even if segments exist
-            max_clusters (int, optional): Maximum clusters for laplacian method (default: 48)
-
-        Raises:
-            ValueError: If invalid method is specified
-            ImportError: If method="segmentino" but vamp is not available
+            max_clusters (int, optional): Maximum clusters (default: 48)
         """
-        if method not in ["laplacian", "segmentino"]:
-            raise ValueError("method must be either 'laplacian' or 'segmentino'")
-
-        if method == "segmentino" and not VAMP_AVAILABLE:
-            raise ImportError("vamp is required for segmentino segmentation. Please install vamp.")
-
-        if method == "laplacian":
-            if max_clusters is None:
-                max_clusters = 48
-            self.segment_laplacian(redo, max_clusters)
-        else:
-            if max_clusters is not None:
-                rosabeats.d_print("warning: max_clusters is ignored for segmentino method")
-            self.segment_segmentino(redo)
+        self.segment_laplacian(redo, max_clusters)
 
     def segment_laplacian(self, redo=False, max_clusters=48):
         """Segment audio using Laplacian segmentation method.
@@ -628,56 +603,6 @@ class rosabeats:
             self.segments.append(segment)
 
         self.total_segments = len(self.segments)
-        self.save_features()
-
-    def segment_segmentino(self, redo=False):
-        """Segment audio using the Segmentino plugin.
-        
-        Args:
-            redo (bool, optional): Force re-segmentation even if segments exist
-            
-        Raises:
-            RuntimeError: If segmentino plugin fails to return valid data
-        """
-        if self.data is None:
-            self.load()
-
-        if not self.total_segments is None and redo is False:
-            rosabeats.d_print(
-                "warning: you already have segment data and did not specify a redo"
-            )
-            return
-
-        rosabeats.d_print("segmenting song...")
-        try:
-            segmented = vamp.collect(self.data, self.sr, "segmentino:segmentino")
-        except Exception as e:
-            rosabeats.d_print(f"Error loading segmentino plugin: {str(e)}")
-            raise RuntimeError(f"Failed to run segmentino segmentation: {str(e)}") from e
-        
-        if not segmented or "list" not in segmented:
-            rosabeats.d_print("Segmentino plugin returned invalid data")
-            raise RuntimeError("Segmentino plugin failed to return valid segment data")
-
-        self.total_segments = len(segmented["list"])
-        self.segments = self.total_segments * [None]
-
-        for count, result in enumerate(segmented["list"]):
-            label = result["label"]
-            start = float(result["timestamp"])
-            duration = float(result["duration"])
-            end = start + duration
-
-            self.segments[count] = dict()
-            self.segments[count]["label"] = label
-            self.segments[count]["start"] = start
-            self.segments[count]["duration"] = duration
-            self.segments[count]["samples"] = librosa.time_to_samples(
-                (start, end), sr=self.sr
-            )
-            self.segments[count]["beats"] = []
-            self.segments[count]["bars"] = []
-
         self.save_features()
 
     def segmentize_beats(self):

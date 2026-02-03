@@ -78,14 +78,12 @@ def print_warning(text):
 def main(args=None):
     # Set up command line argument parsing
     parser = argparse.ArgumentParser(
-        description='Segment audio file and track beats using laplacian or segmentino methods',
+        description='Segment audio file and track beats using Laplacian spectral clustering',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('audiofile', help='Audio file to process')
-    parser.add_argument('--method', choices=['laplacian', 'segmentino'],
-                       default='laplacian', help='Segmentation method to use')
     parser.add_argument('--max-clusters', type=int, default=48,
-                       help='Maximum number of clusters for laplacian segmentation')
+                       help='Maximum number of clusters for segmentation')
     parser.add_argument('--beatsper', type=int, default=8,
                        help='Number of beats per bar')
     parser.add_argument('--firstfull', type=int, default=0,
@@ -104,14 +102,11 @@ def main(args=None):
     else:
         output = args.output
 
-    if args.max_clusters is not None and args.method != "laplacian":
-        print_warning("max-clusters is ignored for segmentino method")
-
     # Print processing information
     print_header("Audio Segmentation and Beat Tracking")
     print(f"{Colors.BOLD}Input:{Colors.ENDC}")
     print(f"  Audio file: {args.audiofile}")
-    print(f"  Method: {args.method}")
+    print(f"  Max clusters: {args.max_clusters}")
     print(f"  Beats per bar: {args.beatsper}")
     print(f"  First full bar: {args.firstfull}")
     print(f"  Output file: {output}")
@@ -127,8 +122,8 @@ def main(args=None):
     s.track_beats(args.beatsper, args.firstfull)
     print_success(f"Found {s.total_beats} beats in {s.total_bars} bars")
 
-    print_step(f"Segmenting with {args.method} method")
-    s.segment(method=args.method, max_clusters=args.max_clusters)
+    print_step("Segmenting audio")
+    s.segment(max_clusters=args.max_clusters)
     print_success(f"Identified {s.total_segments} segments")
 
     print_step("Assigning beats and bars to segments")

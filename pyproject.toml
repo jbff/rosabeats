@@ -33,8 +33,6 @@ dependencies = [
 
 [project.optional-dependencies]
 ffms2 = ["ffms2"]
-vamp = ["vamp"]
-all = ["ffms2", "vamp"]
 
 [project.scripts]
 beatrecipe-processor = "rosabeats.beatrecipe_processor:main"
