@@ -15,6 +15,7 @@ except ImportError:
     FFMS2_AVAILABLE = False
     ffms2 = None
 
+
 import numpy as np
 import scipy
 import sklearn
@@ -48,7 +49,7 @@ class rosabeats:
         total_segments: Total number of segments
         segments: List of segment information
         beatsperbar: Number of beats per bar
-        firstfullbar: Index of first full bar
+        downbeat: Beat index of first downbeat (start of first full bar)
         pulse_device: PulseAudio device index
         stream: Audio output stream
         remix: Remix buffer
@@ -99,7 +100,7 @@ class rosabeats:
         self.total_segments = None
         self.segments = None
         self.beatsperbar = None
-        self.firstfullbar = None
+        self.downbeat = None
         self.pulse_device = None
         self.stream = None
         self.remix = None
@@ -128,8 +129,8 @@ class rosabeats:
         Returns:
             int or None: Bar number if beat starts a bar, None otherwise
         """
-        if (beatnum - self.firstfullbar) % self.beatsperbar == 0:
-            return (beatnum - self.firstfullbar) / self.beatsperbar
+        if (beatnum - self.downbeat) % self.beatsperbar == 0:
+            return (beatnum - self.downbeat) / self.beatsperbar
         else:
             return None
 
@@ -148,14 +149,14 @@ class rosabeats:
         if beatnum > self.total_beats - 1 or beatnum < 0:
             raise Exception("%d is outside possible range" % beatnum)
 
-        bar = int((beatnum - self.firstfullbar) / self.beatsperbar)
+        bar = int((beatnum - self.downbeat) / self.beatsperbar)
 
         if bar > self.total_bars - 1 or bar < 0:
             raise Exception(
                 "got %d in bar %d but bar %d shouldn't exist" % (beatnum, bar)
             )
 
-        rem = (beatnum - self.firstfullbar) % self.beatsperbar
+        rem = (beatnum - self.downbeat) % self.beatsperbar
 
         # returns the bar and the beat # in the bar
         return bar, rem
@@ -358,7 +359,7 @@ class rosabeats:
         features = dict()
         features["tempo"] = self.tempo
         features["beatsperbar"] = self.beatsperbar
-        features["firstfullbar"] = self.firstfullbar
+        features["downbeat"] = self.downbeat
         features["total_beats"] = self.total_beats
         features["total_bars"] = self.total_bars if self.total_bars else None
         features["total_segments"] = self.total_segments
@@ -379,7 +380,7 @@ class rosabeats:
 
         self.tempo = features["tempo"]
         self.beatsperbar = features["beatsperbar"]
-        self.firstfullbar = features["firstfullbar"]
+        self.downbeat = features["downbeat"]
         self.total_beats = features["total_beats"]
         self.total_bars = features["total_bars"]
         self.total_segments = features["total_segments"]
@@ -388,12 +389,86 @@ class rosabeats:
         self.beat_slices = features["beat_slices"]
         self.segments = features["segments"]
 
-    def track_beats(self, beatsper=8, firstfull=0):
-        """Track beats in the audio file.
-        
+    def detect_downbeat(self, beatsper):
+        """Auto-detect the most likely downbeat position using onset strength.
+
+        This uses a heuristic approach: finds the beat offset that maximizes
+        the sum of onset strengths at assumed downbeat positions. This is not
+        as accurate as neural network approaches (e.g., madmom) but works
+        reasonably well for music with clear downbeats.
+
         Args:
-            beatsper (int, optional): Number of beats per bar
-            firstfull (int, optional): Index of first full bar
+            beatsper (int): Number of beats per bar
+
+        Returns:
+            int: Beat index of the detected first downbeat
+        """
+        if self.mono is None:
+            self.mix_to_mono()
+
+        # Get onset strength at each beat
+        onset_env = librosa.onset.onset_strength(y=self.mono, sr=self.sr)
+        _, beat_frames = librosa.beat.beat_track(y=self.mono, sr=self.sr)
+        beat_strengths = onset_env[beat_frames]
+
+        n_beats = len(beat_strengths)
+        best_offset = 0
+        best_score = -np.inf
+
+        for offset in range(beatsper):
+            # Get indices of would-be downbeats with this offset
+            downbeat_indices = np.arange(offset, n_beats, beatsper)
+            if len(downbeat_indices) == 0:
+                continue
+
+            # Score = weighted sum of onset strengths at downbeat positions
+            # Weight earlier beats more heavily (they're more reliable)
+            weights = np.exp(-0.01 * downbeat_indices)
+            score = np.sum(beat_strengths[downbeat_indices] * weights)
+
+            if score > best_score:
+                best_score = score
+                best_offset = offset
+
+        rosabeats.d_print(f"auto-detected downbeat at beat {best_offset}")
+        return best_offset
+
+    def detect_downbeat_dbn(self, beatsper):
+        """Detect downbeat using Dynamic Bayesian Network approach.
+
+        This uses a DBN/HMM approach inspired by madmom's DBNDownBeatTrackingProcessor,
+        but implemented in pure Python without external dependencies.
+
+        Args:
+            beatsper (int): Number of beats per bar
+
+        Returns:
+            int: Beat index of the detected first downbeat
+        """
+        from rosabeats.downbeat import detect_downbeat_dbn
+
+        if self.mono is None:
+            self.mix_to_mono()
+
+        if self.beat_timings is None:
+            raise Exception("must call track_beats first to get beat timings")
+
+        rosabeats.d_print("detecting downbeat using DBN...")
+
+        downbeat_idx = detect_downbeat_dbn(
+            self.mono, self.sr, self.beat_timings, beats_per_bar=beatsper
+        )
+
+        rosabeats.d_print(f"DBN detected downbeat at beat {downbeat_idx}")
+        return downbeat_idx
+
+    def track_beats(self, beatsper=8, downbeat=0):
+        """Track beats in the audio file.
+
+        Args:
+            beatsper (int, optional): Number of beats per bar (default: 8)
+            downbeat (int, optional): Beat index of first downbeat (default: 0).
+                Use detect_downbeat() or detect_downbeat_madmom() for auto-detection.
         """
         if self.has_saved_features():
             self.load_saved_features()
@@ -412,8 +487,9 @@ class rosabeats:
         self.total_beats = len(self.beat_timings)
 
         self.beatsperbar = beatsper
-        self.firstfullbar = firstfull
-        self.total_bars = int((self.total_beats - self.firstfullbar) / self.beatsperbar)
+        self.downbeat = downbeat
+
+        self.total_bars = int((self.total_beats - self.downbeat) / self.beatsperbar)
 
         self.save_features()
 
@@ -696,7 +772,7 @@ class rosabeats:
         self.beats_output = open(self.beats_output_file, "w")
         self.beats_output.write("file %s\n" % self.sourcefile)
         self.beats_output.write(
-            "beats_bar %d %d\n" % (self.beatsperbar, self.firstfullbar)
+            "beats_bar %d %d\n" % (self.beatsperbar, self.downbeat)
         )
 
     def shutdown(self):
@@ -860,7 +936,7 @@ class rosabeats:
         if not silent:
             print("[%d]" % m, end="", flush=True)
 
-        first_beat = int(m * self.beatsperbar) + self.firstfullbar
+        first_beat = int(m * self.beatsperbar) + self.downbeat
         last_beat = int(first_beat + self.beatsperbar) - 1
         if last_beat > self.total_beats - 1:
             last_beat = int(self.total_beats) - 1

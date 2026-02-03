@@ -21,16 +21,16 @@ class BeatSwitcher(rosabeats.rosabeats):
     Attributes:
         infile (str): Path to input audio file
         outfile (str): Path to output beat recipe file (.br)
-        firstfull (int): Index of first full bar
+        downbeat (int): Beat index of first downbeat
         fmin (int): Minimum number of forward beats
         fmax (int): Maximum number of forward beats
         bmin (int): Minimum number of backward beats
         bmax (int): Maximum number of backward beats
     """
-    
+
     def __init__(self, infile, debug=False):
         """Initialize the BeatSwitcher.
-        
+
         Args:
             infile (str): Path to input audio file
             debug (bool, optional): Enable debug mode
@@ -43,26 +43,26 @@ class BeatSwitcher(rosabeats.rosabeats):
 
         # Initialize instance variables
         self.outfile = None
-        self.firstfull = None
+        self._downbeat_arg = None
         self.fmin = None
         self.fmax = None
         self.bmin = None
         self.bmax = None
 
-    def setup(self, outfile, firstfull):
+    def setup(self, outfile, downbeat=None):
         """Set up the beat recipe configuration.
-        
+
         Args:
             outfile (str): Path to output beat recipe file (.br)
-            firstfull (int): Index of first full bar
+            downbeat (int, optional): Beat index of first downbeat (auto-detected if None)
         """
         # Configure output file
         self.outfile = outfile
         self.enable_output_beats(self.outfile)
 
         # Configure beat tracking
-        self.firstfull = firstfull
-        self.track_beats(firstfull=firstfull)
+        self._downbeat_arg = downbeat
+        self.track_beats(downbeat=downbeat)
 
         # Disable WAV output and playback
         self.disable_output_save()
@@ -90,7 +90,7 @@ class BeatSwitcher(rosabeats.rosabeats):
             self.gen_beat_samples()
 
         # Start from first full bar
-        curr_beat = self.firstfullbar
+        curr_beat = self.downbeat
         song_over = False
         direction = "r"  # Start with reverse direction
 
@@ -215,8 +215,12 @@ def parse_args():
         help="Maximum number of backward beats"
     )
     parser.add_argument(
-        "--firstfull", type=int, default=0,
-        help="First full bar index"
+        "--downbeat", type=int, default=None,
+        help="Beat index of first downbeat (default: 0)"
+    )
+    parser.add_argument(
+        "--auto-downbeat", action="store_true",
+        help="Auto-detect downbeat using heuristics (or madmom if available)"
     )
     parser.add_argument(
         "--debug", action="store_true",
@@ -247,7 +251,19 @@ def main():
     
     # Create and run beat switcher
     bs = BeatSwitcher(args.input_file, debug=args.debug)
-    bs.setup(output_file, args.firstfull)
+
+    # Determine downbeat value
+    if args.downbeat is not None:
+        downbeat = args.downbeat
+    elif args.auto_downbeat:
+        # Auto-detect using DBN approach
+        bs.track_beats(downbeat=0)
+        print("Auto-detecting downbeat using DBN...")
+        downbeat = bs.detect_downbeat_dbn(bs.beatsperbar)
+    else:
+        downbeat = 0
+
+    bs.setup(output_file, downbeat)
     bs.set_parameters(args.fmin, args.fmax, args.bmin, args.bmax)
     bs.run()
 

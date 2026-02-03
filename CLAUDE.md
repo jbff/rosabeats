@@ -14,6 +14,12 @@ pip install -e .              # Basic install
 pip install -e .[ffms2]       # With ffms2 for additional audio formats
 ```
 
+#### Installing with uv
+```bash
+uv sync                       # Basic install
+uv sync --extra ffms2         # With ffms2
+```
+
 ### CLI Tools (available after install)
 - `beatrecipe-processor <file.br>` - Execute beat recipe files
 - `segment-song <audio> [options]` - Segment audio and track beats, outputs `.bri` files
@@ -28,6 +34,7 @@ pip install -e .[ffms2]       # With ffms2 for additional audio formats
 rosabeats/
 ├── rosabeats.py              # Core engine (~1000 lines): beat tracking, segmentation,
 │                             # playback buffering, remix operations
+├── downbeat.py               # DBN-based downbeat detection (pure Python HMM)
 ├── beatrecipe_processor.py   # Parses and executes .br files (extends rosabeats class)
 ├── beatswitch.py             # Generates beat recipes with forward/backward patterns
 ├── segment_song.py           # CLI for segmentation, outputs .bri metadata files
@@ -41,7 +48,7 @@ The `rosabeats` class in `rosabeats.py` is the core engine. Other tools either e
 Required header:
 ```
 file <audio.wav>
-beats_bar <beats_per_bar> <first_full_bar_beat>
+beats_bar <beats_per_bar> <downbeat>
 ```
 
 Commands:
@@ -59,10 +66,11 @@ Full syntax: `docs/beatrecipe_docs.txt`
 ## Key Implementation Details
 
 - Beat/bar indices are 0-based
-- `first_full_bar_beat` in beats_bar accounts for pickup beats before first full bar
+- `downbeat` in beats_bar specifies the beat index where the first full bar begins (0 = no pickup beats)
+- Downbeat auto-detection available via `--auto-downbeat` flag (uses DBN/HMM approach)
 - Segmentation uses Laplacian spectral clustering (via librosa/sklearn)
 - Audio loaded via librosa; ffms2 optional for additional format support
-- Debug mode: set `rosabeats_instance.debug = True` or use `-debug` CLI flags
+- Debug mode: set `rosabeats_instance.debug = True` or use `--debug` CLI flags
 
 ## Optional Dependencies
 

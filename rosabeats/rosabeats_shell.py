@@ -170,7 +170,7 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
         divisor = self.arg2_int()
         times = self.arg3_valid_repeat()
 
-        if beats is None or divisor is None or times is None:
+        if beat is None or divisor is None or times is None:
             return False
 
         print("[*] %d * (1/%d beats) " % (times, divisor), flush=True)
@@ -306,7 +306,7 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
         # if we know our audio source, load it, analyze it, and init outputs
         if self.sourcefile:
             print("One moment as we track your beats for you, madame...")
-            self.track_beats(beatsper=per, firstfull=first)
+            self.track_beats(beatsper=per, downbeat=first)
             print("%d beats, %d bars" % (self.total_beats, self.total_bars))
             self.init_outputs()
         else:
@@ -318,7 +318,7 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
         print("saving %s" % filename)
         with open(filename, "w") as f:
             print("file %s" % self.sourcefile, file=f)
-            print("beats_bar %d %d" % (self.beatsperbar, self.firstfullbar), file=f)
+            print("beats_bar %d %d" % (self.beatsperbar, self.downbeat), file=f)
             for name, value in self.macros.items():
                 print("def %s %s" % (name, value), file=f)
 
