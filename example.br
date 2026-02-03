@@ -9,53 +9,57 @@ file audio/play_house-random_drop.mp3
 beats_bar 8 0
 # total beats = 308
 # total bars = 38 (beats 0-304)
-def N1_0 bars 0-11
-def A_1 bars 12-19
-def A_2 bars 20-27
-def N3_3 bars 28-31
-def A_4 bars 32-37
+def C bars 0-2
+def B2 bars 3-10
+def D bars 11-14
+def A bars 15-18
+def D2 bars 19-26
+def E bars 27-28
+def A2 bars 29-30
+def A3 bars 31-37
 
-def N1_0_beats beats 0-98	# dur = 48.470604s, beats 0-98
-def A_1_beats beats 99-163	# dur = 30.727833s, beats 99-163
-def A_2_beats beats 164-223	# dur = 28.801542s, beats 164-223
-def N3_3_beats beats 224-259	# dur = 17.278604s, beats 224-259
-def A_4_beats beats 260-306	# dur = 29.718271s, beats 260-306
+def C_beats beats 0-30	# dur = 14.88s
+def B2_beats beats 31-94	# dur = 30.87s
+def D_beats beats 95-124	# dur = 14.49s
+def A_beats beats 125-158	# dur = 16.09s
+def D2_beats beats 159-222	# dur = 30.72s
+def E_beats beats 223-238	# dur = 7.69s
+def A2_beats beats 239-254	# dur = 7.68s
+def A3_beats beats 255-306	# dur = 32.33s
 
-beat_div 164 8 8
-beat_div 223 4 4
-beat_div 224 2 2
-beat_div 223 4 8
-beat_div 164 8 16
+play A
+play A2
+play A3
+play B2
+play C
+play D
+play D2
+play E
 
-rest 5
+rest 2
 
-play N1_0
-play A_1 2
-play A_2 2
-play N3_3 2
-play A_4
+bars_shuf 0-2
+bars_shuf 3-10
+bars_shuf 11-14
+bars_shuf 15-18
+bars_shuf 19-26
+bars_shuf 27-28
+bars_shuf 29-30
+bars_shuf 31-37
 
-rest 5
-
-bars_shuf 0-11
-bars_shuf 12-19
-bars_shuf 20-27
-bars_shuf 28-31
-bars_shuf 32-37
-
-rest 5
+rest 2
 
 bars_rev 37-0
 
-rest 5
+rest 2
 
-beats_shuf 0-98
-beats 163-99
-beats_shuf 164-223
-beats 259-224
-beats_shuf 260-306
+beats_shuf 0-94
+beats 158-95
+beats_shuf 159-238
+beats 254-239
+beats_shuf 255-306
 
-rest 5
+rest 2
 
 beats 0 2
 beats 2 4
@@ -67,4 +71,23 @@ beats 64 2
 beats 128 4
 beats 256 2
 beats 306 8
+
+rest 2
+
+beat_div 164 8 8
+beat_div 223 4 4
+beat_div 224 2 2
+beat_div 223 4 8
+beat_div 164 8 16
+
+rest 2
+
+beats 0 8
+beats 31 8
+beats 95 8
+beats 125 8
+beats 159 8
+beats 223 8
+beats 239 8
+beats 255 8
 
