@@ -353,6 +353,45 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
                 f.write(f"def {name} {value}\n")
         print("saved")
 
+    def do_load(self, arg):
+        """Load a .br or .bri file: load <filename>"""
+        if not arg.strip():
+            print("usage: load <filename>")
+            return
+
+        filename = arg.strip()
+        self.load_recipe_file(filename)
+
+    def load_recipe_file(self, filename):
+        """Load and execute commands from a .br or .bri file."""
+        try:
+            with open(filename, "r") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            print(f"error: file not found: {filename}")
+            return False
+        except Exception as e:
+            print(f"error reading {filename}: {e}")
+            return False
+
+        print(f"loading {filename}...")
+        for line in lines:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+            # Execute the command
+            self.onecmd(line)
+
+        print(f"loaded {filename}")
+        if self.sourcefile:
+            print(f"  audio: {self.sourcefile}")
+        if self.total_beats:
+            print(f"  {self.total_beats} beats, {self.total_bars} bars")
+        if self.macros:
+            print(f"  {len(self.macros)} macros defined")
+        return True
+
     def do_quit(self, arg):
         """Exit the shell"""
         print("goodbye")
@@ -393,17 +432,23 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
 def main():
     """Main entry point for rosabeats-shell."""
     shell = rosabeats_shell()
+    shell.preloop()
 
     # Handle command-line arguments
     if len(sys.argv) > 1:
         filename = sys.argv[1]
-        shell.preloop()
-        shell.onecmd(f"file {filename}")
 
-        if len(sys.argv) > 3:
-            beatsper = sys.argv[2]
-            downbeat = sys.argv[3]
-            shell.onecmd(f"beats_bar {beatsper} {downbeat}")
+        # Check if it's a recipe file (.br or .bri) or an audio file
+        if filename.endswith(".br") or filename.endswith(".bri"):
+            shell.load_recipe_file(filename)
+        else:
+            # Treat as audio file
+            shell.onecmd(f"file {filename}")
+
+            if len(sys.argv) > 3:
+                beatsper = sys.argv[2]
+                downbeat = sys.argv[3]
+                shell.onecmd(f"beats_bar {beatsper} {downbeat}")
 
     try:
         shell.cmdloop()
