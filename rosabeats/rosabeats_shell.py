@@ -433,12 +433,41 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
 
 def main():
     """Main entry point for rosabeats-shell."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Interactive shell for beat manipulation',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  rosabeats-shell                           Start empty shell
+  rosabeats-shell song.wav                  Load audio file
+  rosabeats-shell song.wav 8 0              Load with 8 beats/bar, downbeat at 0
+  rosabeats-shell recipe.br                 Load beat recipe file
+  rosabeats-shell --debug song.wav          Enable debug mode
+'''
+    )
+    parser.add_argument('file', nargs='?', metavar='FILE',
+                        help='Audio file (.wav, .ogg) or recipe file (.br, .bri) to load')
+    parser.add_argument('beatsper', nargs='?', type=int, default=8, metavar='BEATSPER',
+                        help='Beats per bar (default: 8)')
+    parser.add_argument('downbeat', nargs='?', type=int, default=0, metavar='DOWNBEAT',
+                        help='Downbeat offset (default: 0)')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Enable debug mode')
+
+    args = parser.parse_args()
+
+    # Set debug mode before creating shell
+    if args.debug:
+        rosabeats.rosabeats.debug = True
+
     shell = rosabeats_shell()
     shell.preloop()
 
-    # Handle command-line arguments
-    if len(sys.argv) > 1:
-        filename = sys.argv[1]
+    # Handle file argument
+    if args.file:
+        filename = args.file
 
         # Check if it's a recipe file (.br or .bri) or an audio file
         if filename.endswith(".br") or filename.endswith(".bri"):
@@ -446,11 +475,7 @@ def main():
         else:
             # Treat as audio file
             shell.onecmd(f"file {filename}")
-
-            if len(sys.argv) > 3:
-                beatsper = sys.argv[2]
-                downbeat = sys.argv[3]
-                shell.onecmd(f"beats_bar {beatsper} {downbeat}")
+            shell.onecmd(f"beats_bar {args.beatsper} {args.downbeat}")
 
     try:
         shell.cmdloop()

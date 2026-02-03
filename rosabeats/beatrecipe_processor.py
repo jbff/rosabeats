@@ -470,39 +470,40 @@ class beatrecipe_processor(rosabeats):
 
 
 def main(args=None):
-    output_play = False
-    output_save = False
-    output_beats = False
-    loglevel = logging.INFO
-    recipes = []
+    import argparse
 
-    # If no args provided, use sys.argv (skipping the script name at index 0)
-    if args is None:
-        args = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description='Process beat recipe files (.br) to create audio remixes',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  beatrecipe-processor -p recipe.br           Play the recipe
+  beatrecipe-processor -s recipe.br           Save output to WAV
+  beatrecipe-processor -p -s recipe.br        Play and save
+  beatrecipe-processor -b recipe.br           Write beats output file
+'''
+    )
+    parser.add_argument('recipes', nargs='+', metavar='RECIPE',
+                        help='Beat recipe files (.br) to process')
+    parser.add_argument('-p', '--play', action='store_true',
+                        help='Enable audio playback')
+    parser.add_argument('-s', '--save', action='store_true',
+                        help='Save output to WAV file')
+    parser.add_argument('-b', '--beats', action='store_true',
+                        help='Write beats output file')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Enable debug mode')
 
-    for arg in args:
-        if arg == "-p" or arg == "--play":
-            output_play = True
+    parsed = parser.parse_args(args)
 
-        elif arg == "-s" or arg == "--save":
-            output_save = True
-
-        elif arg == "-b" or arg == "--beats":
-            output_beats = True
-
-        elif arg == "-d" or arg == "--debug":
-            loglevel = logging.DEBUG
-
-        else:
-            recipes.append(arg)
-
-    if len(recipes) < 1:
-        print("no recipes to process were found on command line")
-        sys.exit(1)
+    output_play = parsed.play
+    output_save = parsed.save
+    output_beats = parsed.beats
+    loglevel = logging.DEBUG if parsed.debug else logging.INFO
+    recipes = parsed.recipes
 
     if not (output_play or output_save or output_beats):
-        print("must specify one or more of --play, --save, or --beats for output")
-        sys.exit(1)
+        parser.error("must specify one or more of --play, --save, or --beats for output")
 
     for recipe in recipes:
         print("processing %s..." % recipe, flush=True)

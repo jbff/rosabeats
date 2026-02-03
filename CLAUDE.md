@@ -69,7 +69,7 @@ Commands:
 - `def <name> bars/beats N-M` - Define reusable segment
 - `play <name>` / `play <name> N` - Play defined segment (N times)
 
-Full syntax: `docs/beatrecipe_docs.txt`
+Full syntax: `docs/beatrecipe.md`
 
 ## Key Implementation Details
 
