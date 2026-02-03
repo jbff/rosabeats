@@ -1,386 +1,421 @@
 #!/usr/bin/env python
 
-import re, sys, os.path, random
-import cmd, rosabeats
+import sys
+import os.path
+import random
+import cmd
+import rosabeats
+
+
+def parse_range(arg):
+    """Parse a range argument like '8' or '8-16' into a list of integers.
+
+    Returns list of ints, or None on error.
+    """
+    arg = arg.strip()
+    if not arg:
+        return None
+
+    try:
+        if "-" in arg:
+            parts = arg.split("-", maxsplit=1)
+            start = int(parts[0])
+            stop = int(parts[1])
+        else:
+            start = int(arg)
+            stop = start
+    except (ValueError, IndexError):
+        print(f"invalid range: '{arg}' - use e.g. '8' or '8-16'")
+        return None
+
+    if start > stop:
+        step = -1
+    else:
+        step = 1
+
+    return list(range(start, (stop + 1) if step >= 0 else (stop - 1), step))
+
+
+def parse_int(arg, name="argument"):
+    """Parse an integer argument. Returns int or None on error."""
+    try:
+        return int(arg.strip())
+    except (ValueError, AttributeError):
+        print(f"{name} must be an integer")
+        return None
+
+
+def parse_float(arg, name="argument"):
+    """Parse a float argument. Returns float or None on error."""
+    try:
+        return float(arg.strip())
+    except (ValueError, AttributeError):
+        print(f"{name} must be a number")
+        return None
 
 
 class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
-    intro = "welcome to the rosabeats shell"
-    prompt = "R@; "
+    intro = "Welcome to the rosabeats shell. Type 'help' for commands."
+    prompt = "R> "
 
-    def define_macro(self, name, value):
-        if self.is_defined_macro(name):
-            print("redefining macro %s" % name)
-        self.macros[name] = value
-        return True
-
-    def play_macro(self, name, times):
-        if not self.is_defined_macro(name):
-            print("macro %s not defined" % name)
-            return False
-
-        macro = self.macros[name]
-
-        print("[*] %d * %s [%s]" % (times, name, macro))
-
-        for x in range(times):
-            print("-> %s" % macro)
-            self.onecmd(self.precmd(macro))
-
-    def is_defined_macro(self, name):
-        if self.macros.get(name, None) is not None:
-            return True
-        else:
-            return False
-
-    def arg1_parse_range(self):
-        start = None
-        stop = None
-        step = None
-
-        try:
-            if "-" in self.cmd_args[0]:
-                start, stop = self.cmd_args[0].split("-", maxsplit=1)
-                start = int(start)
-                stop = int(stop)
-
-            else:
-                start = int(self.cmd_args[0])
-                stop = start
-        except:
-            print("first argument must be valid range, e.g. '8' or '8-10'")
-            return None
-
-        if start > stop:
-            step = -1
-        else:
-            step = 1
-
-        return [x for x in range(start, (stop + 1) if step >= 0 else (stop - 1), step)]
-
-    # constructor
     def __init__(self):
         cmd.Cmd.__init__(self)
         rosabeats.rosabeats.__init__(self)
-        #       super(cmd.Cmd, self)
-        #       super(rosabeats.rosabeats, self)
-        #       super().__init__()
-        self.macros = dict()
-        self.cmd_args = None
-
-    # pre & post hooks
-    def precmd(self, line):
-        if line.strip() != '':
-            print("precmd: saving cmd as %s" % line)
-            self.prev_cmd = line
-            self.cmd_args = line.split()[1:]
-        return line
+        self.macros = {}
 
     def preloop(self):
         self.enable_output_play()
         self.disable_output_beats()
         self.disable_output_save()
 
-    def arg1_float(self):
-        try:
-            arg1 = float(self.cmd_args[0])
-        except:
-            print("arg1 must be float")
-            return None
-        return arg1
+    # --- Macro management ---
 
-    def arg1_string(self):
-        try:
-            arg1 = str(self.cmd_args[0])
-        except:
-            print("arg1 must be string")
-            return None
-        return arg1
+    def define_macro(self, name, value):
+        if name in self.macros:
+            print(f"redefining macro '{name}'")
+        self.macros[name] = value
 
-    def arg1_int(self):
-        try:
-            arg1 = int(self.cmd_args[0])
-        except:
-            print("arg1 must be int")
-            return None
-        return arg1
-
-    def arg2_int(self):
-        try:
-            arg1 = int(self.cmd_args[1])
-        except:
-            print("arg2 must be int")
-            return None
-        return arg1
-
-    def arg3_int(self):
-        try:
-            arg3 = int(self.cmd_args[2])
-        except:
-            print("arg3 must be int")
-            return None
-        return arg3
-
-    def arg2_valid_repeat(self):
-        # no second arg so 1 by default
-        if len(self.cmd_args) < 2:
-            return 1
-
-        return self.arg2_int()
-
-    def arg3_valid_repeat(self):
-        # no third arg so 1 by default
-        if len(self.cmd_args) < 3:
-            return 1
-
-        return self.arg3_int()
-
-    # command handlers
-    def do_rest(self, arg):
-        rest = self.arg1_float()
-        times = self.arg2_valid_repeat()
-
-        if rest is None or times is None:
+    def play_macro(self, name, times=1):
+        if name not in self.macros:
+            print(f"macro '{name}' not defined")
             return False
 
-        print("[*] %d * %g beat(s) of rest" % (times, rest))
+        macro = self.macros[name]
+        print(f"[*] {times} x {name} [{macro}]")
 
-        for x in range(times):
-            self.rest(rest)
+        for _ in range(times):
+            print(f"-> {macro}")
+            self.onecmd(macro)
+        return True
 
-    def do_beats(self, arg):
-        beats = self.arg1_parse_range()
-        times = self.arg2_valid_repeat()
-
-        if beats is None or times is None:
-            return False
-
-        print("[*] %d * " % times, end="", flush=True)
-
-        if len(beats) > 1:
-            print("(beats %d-%d) " % (beats[0], beats[-1]))
-        else:
-            print("(beat %d) " % beats[0])
-
-        for x in range(times):
-            self.play_beats(beats)
-
-    def do_beat_div(self, arg):
-        beat = self.arg1_int()
-        divisor = self.arg2_int()
-        times = self.arg3_valid_repeat()
-
-        if beat is None or divisor is None or times is None:
-            return False
-
-        print("[*] %d * (1/%d beats) " % (times, divisor), flush=True)
-
-        for x in range(times):
-            print("%d/%d " % (beat, divisor), end="", flush=True)
-            self.play_beat(beat, divisor=divisor, silent=True)
-
-        print(flush=True)
-
-    def do_beats_shuf(self, arg):
-        beats = self.arg1_parse_range()
-        times = self.arg2_valid_repeat()
-
-        if beats is None or times is None:
-            return False
-
-        print("[*] %d * " % times, end="", flush=True)
-        print("(shuffled beats %d-%d] " % (beats[0], beats[-1]), flush=True)
-
-        for x in range(times):
-            random.shuffle(beats)
-            self.play_beats(beats)
-
-    def do_bars(self, arg):
-        bars = self.arg1_parse_range()
-        times = self.arg2_valid_repeat()
-
-        if bars is None or times is None:
-            return False
-
-        print("[*] %d * " % times, end="", flush=True)
-        if len(bars) > 1:
-            print("(bars %d-%d) " % (bars[0], bars[-1]), flush=True)
-        else:
-            print("(bar %d) " % bars[0], flush=True)
-
-        for x in range(times):
-            self.play_bars(bars)
-
-    def do_bars_rev(self, arg):
-        bars = self.arg1_parse_range()
-        times = self.arg2_valid_repeat()
-
-        if bars is None or times is None:
-            return False
-
-        print("[*] %d * " % times, end="", flush=True)
-        if len(bars) > 1:
-            print("(rev bars %d-%d) " % (bars[0], bars[-1]), flush=True)
-        else:
-            print("(rev bar %d) " % bars[0], flush=True)
-
-        for x in range(times):
-            self.play_bars(bars, reverse=True)
-
-    def do_bars_shuf(self, arg):
-        bars = self.arg1_parse_range()
-        times = self.arg2_valid_repeat()
-
-        if bars is None or times is None:
-            return False
-
-        print("[*] %d * " % times, end="", flush=True)
-        print("(shuffled bars %d-%d) " % (bars[0], bars[-1]), flush=True)
-
-        for x in range(times):
-            random.shuffle(bars)
-            self.play_bars(bars)
-
-    def do_play(self, arg):
-        name = self.arg1_string()
-        times = self.arg2_valid_repeat()
-
-        if name is None or times is None:
-            return False
-
-        self.play_macro(name, times)
-
-    def args_valid_value(self):
-        try:
-            args = " ".join(self.cmd_args[1:])
-        except:
-            print("this cmd requires the value to assign")
-            return None
-        return args
-
-    def do_def(self, arg):
-        name = self.arg1_string()
-        value = self.args_valid_value()
-
-        if name is None or value is None:
-            return False
-
-        print("[*] (def seg: %s = %s)" % (name, value))
-
-        self.define_macro(name, value)
-        print("defined %s => %s" % (name, value))
-
-    def do_help(self, arg):
-        print("valid commands are:")
-        print("  beats, bars, beats_shuf, bars_shuf, beat_div, bars_rev, rest")
-        print("  for predefined macros: ls, lsdef, play, or just type the def name")
-        print("  and finally: save, help, quit")
-
-    def do_lsdef(self, arg):
-        for name, value in self.macros.items():
-            print("%15s %15s" % (name, value))
-
-    def do_ls(self, arg):
-        print(", ".join(list(self.macros.keys())))
-
-    def do_quit(self, arg):
-        self.shutdown()
-        sys.exit(0)
+    # --- Commands ---
 
     def do_file(self, arg):
-        filename = self.arg1_string()
+        """Load an audio file: file <path>"""
+        if not arg.strip():
+            print("usage: file <path>")
+            return
 
-        if filename is None:
-            return False
-
-        print("setting filename to %s" % filename)
+        filename = arg.strip()
+        print(f"loading {filename}")
         self.setfile(filename)
 
     def do_beats_bar(self, arg):
-        per = self.arg1_int()
-        first = self.arg2_int()
+        """Set beats per bar and downbeat: beats_bar <beats_per_bar> <downbeat>"""
+        args = arg.split()
+        if len(args) < 2:
+            print("usage: beats_bar <beats_per_bar> <downbeat>")
+            return
 
-        if per is None or first is None:
-            return False
+        beatsper = parse_int(args[0], "beats_per_bar")
+        downbeat = parse_int(args[1], "downbeat")
 
-        # if we know our audio source, load it, analyze it, and init outputs
-        if self.sourcefile:
-            print("One moment as we track your beats for you, madame...")
-            self.track_beats(beatsper=per, downbeat=first)
-            print("%d beats, %d bars" % (self.total_beats, self.total_bars))
-            self.init_outputs()
+        if beatsper is None or downbeat is None:
+            return
+
+        if not self.sourcefile:
+            print("error: load a file first with 'file <path>'")
+            return
+
+        print("Tracking beats...")
+        self.track_beats(beatsper=beatsper, downbeat=downbeat)
+        print(f"Found {self.total_beats} beats in {self.total_bars} bars")
+        self.init_outputs()
+
+    def do_beats(self, arg):
+        """Play beats: beats <N> or beats <N-M> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: beats <N> or beats <N-M> [times]")
+            return
+
+        beats = parse_range(args[0])
+        if beats is None:
+            return
+
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        if len(beats) > 1:
+            print(f"[*] {times} x beats {beats[0]}-{beats[-1]}")
         else:
-            print("specify file before beats_bar")
-            return False
+            print(f"[*] {times} x beat {beats[0]}")
+
+        for _ in range(times):
+            self.play_beats(beats)
+
+    def do_bars(self, arg):
+        """Play bars: bars <N> or bars <N-M> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: bars <N> or bars <N-M> [times]")
+            return
+
+        bars = parse_range(args[0])
+        if bars is None:
+            return
+
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        if len(bars) > 1:
+            print(f"[*] {times} x bars {bars[0]}-{bars[-1]}")
+        else:
+            print(f"[*] {times} x bar {bars[0]}")
+
+        for _ in range(times):
+            self.play_bars(bars)
+
+    def do_bars_rev(self, arg):
+        """Play bars with beats reversed: bars_rev <N-M> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: bars_rev <N-M> [times]")
+            return
+
+        bars = parse_range(args[0])
+        if bars is None:
+            return
+
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        if len(bars) > 1:
+            print(f"[*] {times} x bars_rev {bars[0]}-{bars[-1]}")
+        else:
+            print(f"[*] {times} x bar_rev {bars[0]}")
+
+        for _ in range(times):
+            self.play_bars(bars, reverse=True)
+
+    def do_beats_shuf(self, arg):
+        """Play beats in shuffled order: beats_shuf <N-M> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: beats_shuf <N-M> [times]")
+            return
+
+        beats = parse_range(args[0])
+        if beats is None:
+            return
+
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        print(f"[*] {times} x beats_shuf {beats[0]}-{beats[-1]}")
+
+        for _ in range(times):
+            random.shuffle(beats)
+            self.play_beats(beats)
+
+    def do_bars_shuf(self, arg):
+        """Play bars in shuffled order: bars_shuf <N-M> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: bars_shuf <N-M> [times]")
+            return
+
+        bars = parse_range(args[0])
+        if bars is None:
+            return
+
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        print(f"[*] {times} x bars_shuf {bars[0]}-{bars[-1]}")
+
+        for _ in range(times):
+            random.shuffle(bars)
+            self.play_bars(bars)
+
+    def do_beat_div(self, arg):
+        """Play subdivided beat: beat_div <beat> <divisor> [times]"""
+        args = arg.split()
+        if len(args) < 2:
+            print("usage: beat_div <beat> <divisor> [times]")
+            return
+
+        beat = parse_int(args[0], "beat")
+        divisor = parse_int(args[1], "divisor")
+        if beat is None or divisor is None:
+            return
+
+        times = 1
+        if len(args) > 2:
+            times = parse_int(args[2], "times")
+            if times is None:
+                return
+
+        print(f"[*] {times} x beat {beat}/{divisor}")
+
+        for _ in range(times):
+            self.play_beat(beat, divisor=divisor, silent=True)
+        print()
+
+    def do_rest(self, arg):
+        """Insert silence: rest <beats> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: rest <beats> [times]")
+            return
+
+        rest_beats = parse_float(args[0], "beats")
+        if rest_beats is None:
+            return
+
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        print(f"[*] {times} x rest({rest_beats})")
+
+        for _ in range(times):
+            self.rest(rest_beats)
+
+    def do_def(self, arg):
+        """Define a macro: def <name> <command>"""
+        args = arg.split(None, 1)  # Split into name and rest
+        if len(args) < 2:
+            print("usage: def <name> <command>")
+            return
+
+        name = args[0]
+        value = args[1]
+
+        self.define_macro(name, value)
+        print(f"defined {name} => {value}")
+
+    def do_play(self, arg):
+        """Play a macro: play <name> [times]"""
+        args = arg.split()
+        if not args:
+            print("usage: play <name> [times]")
+            return
+
+        name = args[0]
+        times = 1
+        if len(args) > 1:
+            times = parse_int(args[1], "times")
+            if times is None:
+                return
+
+        self.play_macro(name, times)
+
+    def do_ls(self, arg):
+        """List defined macros"""
+        if self.macros:
+            print(", ".join(self.macros.keys()))
+        else:
+            print("(no macros defined)")
+
+    def do_lsdef(self, arg):
+        """List macros with their definitions"""
+        if not self.macros:
+            print("(no macros defined)")
+            return
+        for name, value in self.macros.items():
+            print(f"  {name}: {value}")
 
     def do_save(self, arg):
-        filename = self.arg1_string()
-        print("saving %s" % filename)
+        """Save current session to a .br file: save <filename>"""
+        if not arg.strip():
+            print("usage: save <filename>")
+            return
+
+        filename = arg.strip()
+
+        if not self.sourcefile:
+            print("error: no audio file loaded")
+            return
+
+        print(f"saving to {filename}")
         with open(filename, "w") as f:
-            print("file %s" % self.sourcefile, file=f)
-            print("beats_bar %d %d" % (self.beatsperbar, self.downbeat), file=f)
+            f.write(f"file {self.sourcefile}\n")
+            f.write(f"beats_bar {self.beatsperbar} {self.downbeat}\n")
             for name, value in self.macros.items():
-                print("def %s %s" % (name, value), file=f)
+                f.write(f"def {name} {value}\n")
+        print("saved")
+
+    def do_quit(self, arg):
+        """Exit the shell"""
+        print("goodbye")
+        self.shutdown()
+        return True  # Signals cmd.Cmd to exit
+
+    def do_exit(self, arg):
+        """Exit the shell"""
+        return self.do_quit(arg)
+
+    def do_EOF(self, arg):
+        """Handle Ctrl+D"""
+        print()
+        return self.do_quit(arg)
 
     def default(self, line):
-        self.cmd_args = line.split()
-        self.do_play(line)
+        """Try to play a macro if command not recognized"""
+        args = line.split()
+        if not args:
+            return
 
+        name = args[0]
+        if name in self.macros:
+            times = 1
+            if len(args) > 1:
+                times = parse_int(args[1], "times")
+                if times is None:
+                    return
+            self.play_macro(name, times)
+        else:
+            print(f"unknown command or macro: '{name}'")
 
-#   def emptyline(self):
-#       print("repeating: %s" % self.prev_cmd)
-#       self.onecmd(self.precmd(self.prev_cmd))
+    def emptyline(self):
+        """Do nothing on empty line (don't repeat last command)"""
+        pass
 
 
 def main():
-    """
-    Main function for rosabeats-shell command-line tool.
-    
-    Usage: rosabeats-shell [audio_file [beats_per_bar first_full_bar]]
-    
-    Args:
-        audio_file: Optional audio file to analyze
-        beats_per_bar: Number of beats per bar (if audio_file is provided)
-        first_full_bar: First full bar number (if audio_file is provided)
-    
-    Returns:
-        Exit code (0 for success, non-zero for errors)
-    """
+    """Main entry point for rosabeats-shell."""
+    shell = rosabeats_shell()
+
+    # Handle command-line arguments
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        shell.preloop()
+        shell.onecmd(f"file {filename}")
+
+        if len(sys.argv) > 3:
+            beatsper = sys.argv[2]
+            downbeat = sys.argv[3]
+            shell.onecmd(f"beats_bar {beatsper} {downbeat}")
+
     try:
-        load_file = False
+        shell.cmdloop()
+    except KeyboardInterrupt:
+        print("\ninterrupted")
+    finally:
         try:
-            filename = sys.argv[1]
-            beats_bar = " ".join(sys.argv[2:])
-            load_file = True
-            print(f"Audio file: {filename}")
-            print(f"Beats/bar settings: {beats_bar}")
-        except IndexError:
-            # No command line arguments is valid
+            shell.shutdown()
+        except:
             pass
 
-        s = rosabeats_shell()
-        if load_file:
-            s.preloop()
-            s.onecmd(s.precmd(f"file {filename}"))
-            s.onecmd(s.precmd(f"beats_bar {beats_bar}"))
-
-        s.cmdloop()
-        return 0
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-        if 's' in locals() and hasattr(s, 'shutdown'):
-            s.shutdown()
-        return 0
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return 1
-    finally:
-        # Ensure we clean up resources even if there's an error
-        if 's' in locals() and hasattr(s, 'shutdown'):
-            try:
-                s.shutdown()
-            except:
-                pass
+    return 0
 
 
 if __name__ == "__main__":
