@@ -424,30 +424,40 @@ class rosabeats:
 
         self.save_features()
 
-    def segment(self, method="laplacian", redo=False):
+    def segment(self, method="segmentino", redo=False, max_clusters=None):
         """Segment the audio file using the specified method.
         
         Args:
-            method (str, optional): Segmentation method to use ("laplacian" or "segmentino")
+            method (str, optional): Segmentation method to use ("laplacian", "segmentino", or "backtrack"; "segmentino" is default)
+                                                               (currently, both laplacian and backtrack are broken)
             redo (bool, optional): Force re-segmentation even if segments exist
             
         Raises:
             ValueError: If invalid method is specified
             ImportError: If method="segmentino" but vamp is not available
+            ValueError: If max_clusters is not specified for laplacian segmentation
         """
-        if method not in ["laplacian", "segmentino"]:
-            raise ValueError("method must be either 'laplacian' or 'segmentino'")
+        if method not in ["laplacian", "segmentino", "backtrack"]:
+            raise ValueError("method must be either 'laplacian', 'segmentino' or 'backtrack'")
             
         if method == "segmentino" and not VAMP_AVAILABLE:
             raise ImportError("vamp is required for segmentino segmentation. Please install vamp.")
-            
-        if method == "laplacian":
-            self.segment_laplacian(redo)
+
+        if max_clusters is None and method == "laplacian":
+            raise ValueError("max_clusters must be specified for laplacian segmentation")
+
+        if max_clusters is not None and method != "laplacian":
+            raise ValueError("max_clusters should only be specified for laplacian segmentation")
+
+        if method == "backtrack":
+            self.segment_backtrack(redo)
+        elif method == "laplacian":
+            self.segment_laplacian(redo, max_clusters)
         else:
             self.segment_segmentino(redo)
 
-    def segment_laplacian(self, redo=False):
-        """Segment audio using Laplacian segmentation method.
+    def segment_backtrack(self, redo=False):
+        """Segment audio using librosa onset detection and backtracking method.
         
         Args:
             redo (bool, optional): Force re-segmentation even if segments exist
@@ -455,7 +465,49 @@ class rosabeats:
         if self.beat_timings is None:
             self.track_beats()
 
-        seg_letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z', 'AA','BB','CC','DD','EE','FF','GG','HH','II','JJ','KK','LL','MM','NN','OO','PP','QQ','RR','SS','TT','UU','VV','WW','XX','YY','ZZ']
+        if not self.total_segments is None and redo is False:
+            rosabeats.d_print(
+                "warning: you already have segment data and did not specify a redo"
+            )
+            return
+
+        # Get onset times
+        onset_frames = librosa.onset.onset_detect(y=self.mono, sr=self.sr, backtrack=True)
+
+        # Initialize segments list
+        self.segments = []
+        count = 0
+
+        for frame_s, seg_len in zip(onset_frames, onset_frames[1:]):
+            segment_boundaries = (frame_s, frame_s + seg_len)
+            segment_time_boundaries = librosa.samples_to_time(segment_boundaries, sr=self.sr)
+            start, end = segment_time_boundaries
+            duration = end - start
+
+            segment = dict()
+            segment["label"] = "segment" + str(count)
+            segment["start"] = start
+            segment["duration"] = duration
+            segment["samples"] = segment_boundaries
+            segment["beats"] = []
+            segment["bars"] = []
+
+            self.segments.append(segment)
+
+            count += 1
+
+        self.total_segments = len(self.segments)
+        self.save_features()
+
+    def segment_laplacian(self, redo=False, max_clusters=48):
+        """Segment audio using Laplacian segmentation method.
+        
+        Args:
+            redo (bool, optional): Force re-segmentation even if segments exist
+            max_clusters (int, optional): Maximum number of clusters to use
+        """
+        if self.beat_timings is None:
+            self.track_beats()
 
         if not self.total_segments is None and redo is False:
             rosabeats.d_print(
@@ -520,7 +572,7 @@ class rosabeats:
         # we need at least 3 clusters for any song and shouldn't need to calculate more than
         # 48 clusters for even a really complicated piece of music.
 
-        for n_clusters in range(48, 2, -1):
+        for n_clusters in range(max_clusters, 2, -1):
             rosabeats.d_print("Testing a cluster value of %d..." % n_clusters)
 
             # compute a matrix of the Eigen-vectors / their normalized values
@@ -611,6 +663,10 @@ class rosabeats:
 
         self.total_segments = len(self.segments)
         self.save_features()
+
+        ##TODO## segment_laplacian needs to add any unsegmented part of the song as a last segment
+        ##TODO## for example, using max clusters of 10 with example audio, we get 10 segments, but ending with beat 254 (there are 308)
+        ##TODO## even if max clusters is 48, it only gives us segments including up to beat 303
 
     def segment_segmentino(self, redo=False):
         """Segment audio using the Segmentino plugin.

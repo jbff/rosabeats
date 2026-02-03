@@ -78,19 +78,21 @@ def print_warning(text):
 def main(args=None):
     # Set up command line argument parsing
     parser = argparse.ArgumentParser(
-        description='Segment audio file and track beats using either laplacian or segmentino methods',
+        description='Segment audio file and track beats using laplacian, segmentino, or backtrack methods',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('audiofile', help='Audio file to process')
-    parser.add_argument('--method', choices=['laplacian', 'segmentino'], 
-                       default='laplacian', help='Segmentation method to use')
-    parser.add_argument('--debug', action='store_true', 
-                       help='Enable debug mode for detailed processing information')
-    parser.add_argument('--output', help='Output file path (default: input filename with .bri extension)')
+    parser.add_argument('--method', choices=['laplacian', 'segmentino', 'backtrack'], 
+                       default='backtrack', help='Segmentation method to use')
+    parser.add_argument('--max-clusters', type=int, default=None,
+                       help='Maximum number of clusters to use for laplacian segmentation')
     parser.add_argument('--beatsper', type=int, default=8,
                        help='Number of beats per bar')
     parser.add_argument('--firstfull', type=int, default=0,
                        help='First full bar number')
+    parser.add_argument('--output', help='Output file path (default: input filename with .bri extension)')
+    parser.add_argument('--debug', action='store_true', 
+                       help='Enable debug mode for detailed processing information')
     
     args = parser.parse_args()
     
@@ -101,6 +103,13 @@ def main(args=None):
         output = stub + ".bri"
     else:
         output = args.output
+
+    if args.method == "laplacian" and args.max_clusters is None:
+        print_warning("max-clusters is not specified for laplacian segmentation, using default of 48")
+        args.max_clusters = 48
+
+    if args.max_clusters is not None and args.method != "laplacian":
+        print_warning("max-clusters is specified for non-laplacian segmentation, this will be ignored")
 
     # Print processing information
     print_header("Audio Segmentation and Beat Tracking")
@@ -123,7 +132,7 @@ def main(args=None):
     print_success(f"Found {s.total_beats} beats in {s.total_bars} bars")
 
     print_step(f"Segmenting with {args.method} method")
-    s.segment(method=args.method)
+    s.segment(method=args.method, max_clusters=args.max_clusters)
     print_success(f"Identified {s.total_segments} segments")
 
     print_step("Assigning beats and bars to segments")

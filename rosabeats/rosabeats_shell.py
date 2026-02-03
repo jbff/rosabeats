@@ -332,20 +332,56 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
 #       self.onecmd(self.precmd(self.prev_cmd))
 
 
-if __name__ == "__main__":
-    load_file = False
+def main():
+    """
+    Main function for rosabeats-shell command-line tool.
+    
+    Usage: rosabeats-shell [audio_file [beats_per_bar first_full_bar]]
+    
+    Args:
+        audio_file: Optional audio file to analyze
+        beats_per_bar: Number of beats per bar (if audio_file is provided)
+        first_full_bar: First full bar number (if audio_file is provided)
+    
+    Returns:
+        Exit code (0 for success, non-zero for errors)
+    """
     try:
-        filename = sys.argv[1]
-        beats_bar = " ".join(sys.argv[2:])
-        load_file = True
-        print(beats_bar)
-    except:
-        pass
+        load_file = False
+        try:
+            filename = sys.argv[1]
+            beats_bar = " ".join(sys.argv[2:])
+            load_file = True
+            print(f"Audio file: {filename}")
+            print(f"Beats/bar settings: {beats_bar}")
+        except IndexError:
+            # No command line arguments is valid
+            pass
 
-    s = rosabeats_shell()
-    if load_file:
-        s.preloop()
-        s.onecmd(s.precmd("file %s" % filename))
-        s.onecmd(s.precmd("beats_bar %s" % beats_bar))
+        s = rosabeats_shell()
+        if load_file:
+            s.preloop()
+            s.onecmd(s.precmd(f"file {filename}"))
+            s.onecmd(s.precmd(f"beats_bar {beats_bar}"))
 
-    s.cmdloop()
+        s.cmdloop()
+        return 0
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        if 's' in locals() and hasattr(s, 'shutdown'):
+            s.shutdown()
+        return 0
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return 1
+    finally:
+        # Ensure we clean up resources even if there's an error
+        if 's' in locals() and hasattr(s, 'shutdown'):
+            try:
+                s.shutdown()
+            except:
+                pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())

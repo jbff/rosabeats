@@ -49,7 +49,7 @@ class beatrecipe_processor(rosabeats):
         self.recipe_lines = None
         self.macros = dict()
 
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=loglevel)
         self.log = logging.getLogger(__name__)
         self.log.setLevel(loglevel)
         self.log.debug("logging activated")
