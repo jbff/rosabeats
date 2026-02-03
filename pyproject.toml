@@ -8,15 +8,13 @@ dynamic = ["version"]
 description = "Audio beat detection, segmentation, and remixing library using librosa"
 readme = "README.md"
 license = "ISC"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 authors = [
     { name = "John Fleming" }
 ]
 keywords = ["audio", "beat", "detection", "segmentation", "remixing", "librosa", "music"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",

@@ -30,7 +30,7 @@ I wrote most of this code in 2018-2019 and made some additions through 2021. I c
 
 ### Prerequisites
 
-- Python 3.9+ (Tested most recently with Python 3.11.12 and 3.13.2)
+- Python 3.11+ (Tested most recently with Python 3.11.12 and 3.13.2)
 - ffms2 libraries (On Fedora: `dnf install ffms2`; tested most recently with ffms-5.0)
 
 ### Installing from PyPI
