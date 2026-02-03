@@ -9,3 +9,5 @@ MINE
 *.egg-info/
 dist/
 build/
+*.mp3
+*.wav

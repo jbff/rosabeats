@@ -4,6 +4,7 @@ import re, sys, os.path, random, logging
 
 from rosabeats import rosabeats
 
+
 class beatrecipe_processor(rosabeats):
     @staticmethod
     def ilist(indices):
@@ -114,7 +115,7 @@ class beatrecipe_processor(rosabeats):
             return None
 
         # skip lines that start with hash
-        if line.startswith('#'):
+        if line.startswith("#"):
             return None
 
         # remove same line comments but process rest of line
@@ -127,7 +128,7 @@ class beatrecipe_processor(rosabeats):
 
         # split multiple commands separated by semicolons
         lines = []
-        for l in line.split(';'):
+        for l in line.split(";"):
             lines.append(l.strip())
 
         return lines
@@ -339,9 +340,7 @@ class beatrecipe_processor(rosabeats):
                     return True
                 else:
                     raise e
-            print(
-                "[*] (def seg: %s = %s)" % (name, value)
-            )
+            print("[*] (def seg: %s = %s)" % (name, value))
 
             self.define_macro(name, value)
             print("defined %s => %s" % (name, value))
@@ -357,7 +356,6 @@ class beatrecipe_processor(rosabeats):
                 print("%15s %15s" % (name, value))
 
         elif self.interactive and verb == "ls":
-
             print(", ".join(list(self.macros.keys())))
 
         elif self.interactive and verb == "quit":
@@ -392,12 +390,11 @@ class beatrecipe_processor(rosabeats):
     def process_interactive(self):
         KeepProcessing = True
         while KeepProcessing:
-
             print("")
             print("enter beatrecipe command => ", end="", flush=True)
 
             lines = self.preprocess(input())
-            
+
             for cmd in lines:
                 print(cmd)
                 KeepProcessing = self.execute_command(cmd)
@@ -413,8 +410,8 @@ class beatrecipe_processor(rosabeats):
             except Exception:
                 verb = line
                 args = ""
-#               self.parse_error("could not split line into verb and args")
-#               sys.exit(1)
+            #               self.parse_error("could not split line into verb and args")
+            #               sys.exit(1)
 
             if verb == "file":
                 filename = str(args)
@@ -433,10 +430,12 @@ class beatrecipe_processor(rosabeats):
                 # if we know our audio source, load it, analyze it, and init outputs
                 if self.sourcefile:
                     print("One moment as we track your beats for you, madame...")
-                    self.track_beats(beatsper=per, firstfull=first)
+                    self.track_beats(beatsper=per, downbeat=first)
                     self.init_outputs()
                 else:
-                    self.parse_error("a file directive must come before a beats_bar directive")
+                    self.parse_error(
+                        "a file directive must come before a beats_bar directive"
+                    )
                     sys.exit(1)
 
             elif verb == "def":
@@ -462,11 +461,11 @@ def main(args=None):
     output_beats = False
     loglevel = logging.INFO
     recipes = []
-    
+
     # If no args provided, use sys.argv (skipping the script name at index 0)
     if args is None:
         args = sys.argv[1:]
-        
+
     for arg in args:
         if arg == "-p" or arg == "--play":
             output_play = True
@@ -496,7 +495,9 @@ def main(args=None):
 
         stub, ext = os.path.splitext(os.path.basename(recipe))
 
-        p = beatrecipe_processor(recipe, interactive=False, loglevel=loglevel, debug=True)
+        p = beatrecipe_processor(
+            recipe, interactive=False, loglevel=loglevel, debug=True
+        )
 
         if output_play:
             p.enable_output_play()
@@ -518,6 +519,7 @@ def main(args=None):
         except Exception as e:
             print("error processing %s: %s" % (recipe, e), flush=True)
             raise e
+
 
 if __name__ == "__main__":
     main()
