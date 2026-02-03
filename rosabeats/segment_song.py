@@ -89,8 +89,8 @@ def generate_segment_names(segments):
     """Generate letter-based names for segments with repeat markers.
 
     First occurrence of cluster 0 -> "A"
-    Second occurrence of cluster 0 -> "A'"
-    Third occurrence -> "A''"
+    Second occurrence of cluster 0 -> "A2"
+    Third occurrence -> "A3"
     First occurrence of cluster 1 -> "B", etc.
 
     Returns:
@@ -108,10 +108,10 @@ def generate_segment_names(segments):
         # Get base letter for this cluster
         letter = get_segment_letter(cluster)
 
-        # Add prime marks for repeats
+        # Add number suffix for repeats (A, A2, A3, ...)
         repeat_count = cluster_counts[cluster]
         if repeat_count > 0:
-            name = letter + "'" * repeat_count
+            name = letter + str(repeat_count + 1)
         else:
             name = letter
 
@@ -222,8 +222,14 @@ def main(args=None):
             print(f"  Duration: {seg['duration']:.2f} seconds")
 
             if len(seg["bars"]) >= 1:
-                print(f"  Bars: {seg['bars'][0]}-{seg['bars'][-1]}")
-                bars_defs.append(f"def {seg_name} bars {seg['bars'][0]}-{seg['bars'][-1]}")
+                # Filter out negative bars (pickup beats before downbeat)
+                valid_bars = [b for b in seg["bars"] if b >= 0]
+                if len(valid_bars) >= 1:
+                    print(f"  Bars: {valid_bars[0]}-{valid_bars[-1]}")
+                    bars_defs.append(f"def {seg_name} bars {valid_bars[0]}-{valid_bars[-1]}")
+                elif len(seg["bars"]) >= 1:
+                    # All bars are negative (pickup section)
+                    print(f"  Bars: (pickup) {seg['bars'][0]}-{seg['bars'][-1]}")
 
             if len(seg["beats"]) >= 1:
                 print(f"  Beats: {seg['beats'][0]}-{seg['beats'][-1]}")
