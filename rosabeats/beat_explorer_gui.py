@@ -390,6 +390,7 @@ class BeatExplorerWindow(QMainWindow):
         self.lbl_total_bars.setText(f"Total bars: {self.explorer.total_bars}")
         tempo = self.explorer.rb.tempo
         if tempo is not None:
+            tempo = float(tempo)
             self.lbl_tempo.setText(f"Tempo: {tempo:.1f} BPM")
 
     def _request_play_beat(self, beat_index: int) -> None:
