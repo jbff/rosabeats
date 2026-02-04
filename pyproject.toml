@@ -33,6 +33,7 @@ dependencies = [
 
 [project.optional-dependencies]
 ffms2 = ["ffms2"]
+explorer = ["easy_getch>=1.0.0"]
 dev = ["pytest>=8.0", "pytest-cov>=4.0"]
 
 [project.scripts]
@@ -40,6 +41,7 @@ beatrecipe-processor = "rosabeats.beatrecipe_processor:main"
 segment-song = "rosabeats.segment_song:main"
 beatswitch = "rosabeats.beatswitch:main"
 rosabeats-shell = "rosabeats.rosabeats_shell:main"
+beat-explorer = "rosabeats.beat_explorer_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/jbff/rosabeats"

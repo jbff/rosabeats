@@ -338,6 +338,12 @@ wheels = [
 ]
 
 [[package]]
+name = "easy-getch"
+version = "1.0.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/f1/42f902c4b573a79eb8377bc6e0f2f6e23185629a6a11f8244bf42e9bbf79/easy_getch-1.0.6.tar.gz", hash = "sha256:3cf78a098a852fba8f7701a935c9f72523dc60c1fb8605e77361ffea672e4613", size = 2850, upload-time = "2018-10-18T13:04:26.976Z" }
+
+[[package]]
 name = "ffms2"
 version = "0.4.5.5"
 source = { registry = "https://pypi.org/simple" }
@@ -718,12 +724,16 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
+explorer = [
+    { name = "easy-getch" },
+]
 ffms2 = [
     { name = "ffms2" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "easy-getch", marker = "extra == 'explorer'", specifier = ">=1.0.0" },
     { name = "ffms2", marker = "extra == 'ffms2'" },
     { name = "librosa", specifier = ">=0.11.0,<1.0" },
     { name = "numpy", specifier = ">=2.0,<3.0" },
@@ -734,7 +744,7 @@ requires-dist = [
     { name = "sounddevice", specifier = ">=0.5.0,<1.0" },
     { name = "soundfile", specifier = ">=0.13.0,<1.0" },
 ]
-provides-extras = ["ffms2", "dev"]
+provides-extras = ["ffms2", "explorer", "dev"]
 
 [[package]]
 name = "scikit-learn"
