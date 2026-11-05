@@ -78,6 +78,24 @@ class LoadWorker(QObject):
             self.finished.emit(None, str(e))
 
 
+class DetectWorker(QObject):
+    """Worker that runs downbeat detection on a dedicated thread."""
+
+    finished = pyqtSignal(object, str)  # (detected downbeat index or None, error)
+
+    def __init__(self, rb: rosabeats, beats_per_bar: int) -> None:
+        super().__init__()
+        self.rb = rb
+        self.beats_per_bar = beats_per_bar
+
+    def run(self) -> None:
+        try:
+            detected = self.rb.detect_downbeat(self.beats_per_bar)
+            self.finished.emit(int(detected), "")
+        except Exception as e:
+            self.finished.emit(None, str(e))
+
+
 class PlaybackWorker(QObject):
     """Worker that executes blocking playback calls on a dedicated thread."""
 
@@ -91,8 +109,12 @@ class PlaybackWorker(QObject):
     def __init__(self, rb: rosabeats) -> None:
         super().__init__()
         self.rb = rb
-        self.play_beat_signal.connect(self._play_beat)
-        self.play_bar_signal.connect(self._play_bar)
+        # NOTE: do NOT connect play_beat_signal/play_bar_signal here. This
+        # object is still on the GUI thread during construction; a
+        # self-connection made now would run playback as a direct call on
+        # the GUI thread instead of queueing it on the worker thread.
+        # Connections are made in _on_load_finished after moveToThread()
+        # (queued), so playback truly runs off the GUI thread.
 
     def _play_beat(self, beat_index: int) -> None:
         self.started.emit()
@@ -129,6 +151,11 @@ class BeatExplorerWindow(QMainWindow):
         self._playback_worker: Optional[PlaybackWorker] = None
         self._load_thread: Optional[QThread] = None
         self._load_worker: Optional[LoadWorker] = None
+        self._detect_thread: Optional[QThread] = None
+        self._detect_worker: Optional[DetectWorker] = None
+        self._busy: bool = False
+        self._apply_beats_per_bar: int = 0
+        self._apply_old_index: int = 0
         self._beats_per_bar = beats_per_bar
         self._downbeat = downbeat
         self._auto_downbeat = auto_downbeat
@@ -341,16 +368,27 @@ class BeatExplorerWindow(QMainWindow):
         # Set up playback worker thread
         self._playback_thread = QThread()
         self._playback_worker = PlaybackWorker(rb)
+        # Connect only after moveToThread(): connections created on the GUI
+        # thread before the worker's affinity changes can dispatch as direct
+        # calls on the GUI thread rather than queueing on the worker thread.
         self._playback_worker.moveToThread(self._playback_thread)
+        queued = Qt.ConnectionType.QueuedConnection
+        self._playback_worker.play_beat_signal.connect(
+            self._playback_worker._play_beat, queued
+        )
+        self._playback_worker.play_bar_signal.connect(
+            self._playback_worker._play_bar, queued
+        )
         self._playback_worker.started.connect(self._on_playback_started)
         self._playback_worker.finished.connect(self._on_playback_finished)
         self._playback_worker.error.connect(self._on_playback_error)
         self._playback_thread.start()
 
-        # Update spinbox ranges
-        self.spin_goto_beat.setMaximum(self.explorer.total_beats - 1)
-        self.spin_goto_bar.setMaximum(self.explorer.total_bars - 1)
-        self.spin_downbeat.setMaximum(self.explorer.total_beats - 1)
+        # Update spinbox ranges (guarded so short/zero-beat tracks keep
+        # spinboxes at a valid [0, 0] state instead of a negative range)
+        self.spin_goto_beat.setMaximum(max(0, self.explorer.total_beats - 1))
+        self.spin_goto_bar.setMaximum(max(0, self.explorer.total_bars - 1))
+        self.spin_downbeat.setMaximum(max(0, self.explorer.total_beats - 1))
         self.spin_bpb.setValue(self.explorer.beatsperbar)
         self.spin_downbeat.setValue(self.explorer.downbeat)
 
@@ -359,14 +397,17 @@ class BeatExplorerWindow(QMainWindow):
         self.status_bar.showMessage("Ready")
 
     def _on_playback_started(self) -> None:
+        self._busy = True
         self._set_playback_enabled(False)
         self.status_bar.showMessage("Playing...")
 
     def _on_playback_finished(self) -> None:
+        self._busy = False
         self._set_playback_enabled(True)
         self.status_bar.showMessage("Ready")
 
     def _on_playback_error(self, message: str) -> None:
+        self._busy = False
         self._set_playback_enabled(True)
         self.status_bar.showMessage(f"Error: {message}")
 
@@ -394,12 +435,12 @@ class BeatExplorerWindow(QMainWindow):
             self.lbl_tempo.setText(f"Tempo: {tempo:.1f} BPM")
 
     def _request_play_beat(self, beat_index: int) -> None:
-        if self._playback_worker is None:
+        if self._playback_worker is None or self._busy:
             return
         self._playback_worker.play_beat_signal.emit(beat_index)
 
     def _request_play_bar(self) -> None:
-        if self._playback_worker is None or self.explorer is None:
+        if self._playback_worker is None or self._busy:
             return
         first = self.explorer.first_beat_of_current_bar()
         last = first + self.explorer.beatsperbar
@@ -407,97 +448,145 @@ class BeatExplorerWindow(QMainWindow):
             first, last, self.explorer.total_beats
         )
 
+    def _guard_busy(self) -> bool:
+        """Return True when a navigation/playback request must be skipped:
+        explorer not loaded or playback already in flight. Keyboard
+        shortcuts bypass the disabled buttons, so this check, not the
+        button state, is what keeps requests from queueing up."""
+        return self.explorer is None or self._playback_worker is None or self._busy
+
     def _on_prev_beat(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self.explorer.prev_beat()
         self._update_display()
         self._request_play_beat(self.explorer.current_beat())
 
     def _on_this_beat(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self._request_play_beat(self.explorer.current_beat())
 
     def _on_next_beat(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self.explorer.next_beat()
         self._update_display()
         self._request_play_beat(self.explorer.current_beat())
 
     def _on_prev_bar(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self.explorer.prev_bar()
         self._update_display()
         self._request_play_bar()
 
     def _on_this_bar(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self._request_play_bar()
 
     def _on_next_bar(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self.explorer.next_bar()
         self._update_display()
         self._request_play_bar()
 
     def _on_goto_bar(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self.explorer.goto_bar(self.spin_goto_bar.value())
         self._update_display()
         self._request_play_beat(self.explorer.current_beat())
 
     def _on_goto_beat(self) -> None:
-        if self.explorer is None:
+        if self._guard_busy():
             return
         self.explorer.goto_beat(self.spin_goto_beat.value())
         self._update_display()
         self._request_play_beat(self.explorer.current_beat())
 
     def _on_apply_settings(self) -> None:
-        if self.explorer is None:
+        if self.explorer is None or self._busy:
             return
 
         new_bpb = self.spin_bpb.value()
         auto = self.chk_auto_downbeat.isChecked()
 
-        rb = self.explorer.rb
-        rb.beatsperbar = new_bpb
+        # capture playback position so it survives the rebuild
+        self._apply_beats_per_bar = new_bpb
+        self._apply_old_index = self.explorer.current_beat()
 
         if auto:
+            # Detection runs a full STFT/melspectrogram pass that can take
+            # seconds; do it on a thread. rb is not touched until detection
+            # succeeds so a failure can never leave a mixed-meter state.
+            self._busy = True
+            self._set_playback_enabled(False)
             self.status_bar.showMessage("Detecting downbeat...")
-            QApplication.processEvents()
-            try:
-                detected = rb.detect_downbeat(new_bpb)
-                rb.downbeat = detected
-                self.spin_downbeat.setValue(detected)
-            except Exception as e:
-                self.status_bar.showMessage(f"Error: {e}")
-                return
+
+            self._detect_thread = QThread()
+            self._detect_worker = DetectWorker(self.explorer.rb, new_bpb)
+            self._detect_worker.moveToThread(self._detect_thread)
+            self._detect_thread.started.connect(self._detect_worker.run)
+            self._detect_worker.finished.connect(
+                self._on_detect_finished, Qt.ConnectionType.QueuedConnection
+            )
+            self._detect_thread.start()
         else:
-            rb.downbeat = self.spin_downbeat.value()
+            rb = self.explorer.rb
+            self._finish_apply(new_bpb, self.spin_downbeat.value())
 
-        rb.total_bars = (rb.total_beats - rb.downbeat) // new_bpb
+    def _finish_apply(self, new_bpb: int, downbeat: int) -> None:
+        """Apply the meter to rb and rebuild the explorer state."""
+        rb = self.explorer.rb
+        rb.beatsperbar = new_bpb
+        rb.downbeat = downbeat
+        rb.total_bars = (rb.total_beats - downbeat) // new_bpb
 
-        # Rebuild explorer to pick up new settings
+        # Rebuild explorer to pick up new settings, keeping the user's
+        # position rather than teleporting back to the downbeat
         self.explorer = BeatExplorerCLI(rb)
+        self.explorer.current_beat_index = max(
+            0, min(self._apply_old_index, rb.total_beats - 1)
+        )
 
         self.spin_goto_bar.setMaximum(max(0, self.explorer.total_bars - 1))
         self._update_display()
         self.status_bar.showMessage("Ready")
 
+    def _on_detect_finished(self, detected, error) -> None:
+        """Handle downbeat detection completion (GUI thread)."""
+        if self._detect_thread is not None:
+            self._detect_thread.quit()
+            self._detect_thread.wait()
+            self._detect_thread = None
+            self._detect_worker = None
+        self._busy = False
+        self._set_playback_enabled(True)
+
+        new_bpb = self._apply_beats_per_bar
+        if error or detected is None:
+            self.status_bar.showMessage(f"Error: {error}")
+            return
+
+        try:
+            self._finish_apply(new_bpb, int(detected))
+            self.spin_downbeat.setValue(int(detected))
+        except Exception as e:
+            self.status_bar.showMessage(f"Error: {e}")
+            return
+
     def closeEvent(self, event) -> None:
-        if self._playback_thread is not None:
-            self._playback_thread.quit()
-            self._playback_thread.wait()
-        if self._load_thread is not None:
-            self._load_thread.quit()
-            self._load_thread.wait()
+        for thread in (
+            self._playback_thread,
+            self._detect_thread,
+            self._load_thread,
+        ):
+            if thread is not None:
+                thread.quit()
+                thread.wait()
         if self.explorer is not None:
             try:
                 self.explorer.rb.shutdown()
@@ -527,6 +616,11 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true", help="Enable debug output")
 
     args = parser.parse_args()
+
+    if args.beats_per_bar < 1:
+        parser.error("--beats-per-bar must be at least 1")
+    if args.downbeat < 0:
+        parser.error("--downbeat must be a non-negative integer")
 
     app = QApplication(sys.argv)
     window = BeatExplorerWindow(

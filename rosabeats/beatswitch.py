@@ -244,7 +244,10 @@ def main():
         beatrecipe-processor input.wav output.br output.wav
     """
     args = parse_args()
-    
+
+    if args.downbeat is not None and args.downbeat < 0:
+        raise SystemExit("error: --downbeat must be a non-negative integer")
+
     # Determine output file path
     output_file = args.output if args.output else get_default_output_path(args.input_file)
     print(f"Output file: {output_file}")

@@ -22,7 +22,7 @@ The `beats_bar` directive takes two arguments:
 - **beats_per_bar**: Number of beats in each bar (commonly 4 or 8)
 - **downbeat**: Beat index of the first downbeat (often 0, but may be non-zero depending on the track)
 
-Use `control_beats.py` or the interactive shell to experiment and discover the correct downbeat value for a given track.
+Use the beat-explorer CLI/GUI (`beat-explorer song.wav` / `beat-explorer-gui song.wav`) to step through beats and find the correct downbeat value, or use `--auto-downbeat` (DBN detection) and the discovered value is reported automatically. The interactive shell (`rosabeats-shell`) also works for experimenting manually.
 
 ## Commands
 

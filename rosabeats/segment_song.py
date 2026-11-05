@@ -141,6 +141,11 @@ def main(args=None):
 
     args = parser.parse_args()
 
+    if args.beatsper < 1:
+        raise SystemExit("error: --beatsper must be a positive integer")
+    if args.downbeat is not None and args.downbeat < 0:
+        raise SystemExit("error: --downbeat must be a non-negative integer")
+
     # Set output file if not specified
     if args.output is None:
         basename = os.path.basename(args.audiofile)

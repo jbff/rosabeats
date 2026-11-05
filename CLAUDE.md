@@ -12,6 +12,8 @@ Rosabeats is a Python library for audio beat detection, segmentation, and remixi
 ```bash
 pip install -e .              # Basic install
 pip install -e .[ffms2]       # With ffms2 for additional audio formats
+pip install -e .[gui]         # With PyQt6 for beat-explorer-gui
+pip install -e .[explorer]    # With easy_getch for beat-explorer interactive keys
 ```
 
 #### Installing with uv

@@ -184,9 +184,10 @@ class TestBeatExplorerCLIFirstBeatOfCurrentBar:
         assert explorer.first_beat_of_current_bar() == 8
 
     def test_first_beat_before_downbeat(self, explorer_with_pickup):
-        """Should return 0 when before downbeat."""
+        """In the pickup region, 'This Bar' should target bar 0 (which
+        starts at the downbeat), not weld pickup beats onto bar 0."""
         explorer_with_pickup.goto_beat(1)
-        assert explorer_with_pickup.first_beat_of_current_bar() == 0
+        assert explorer_with_pickup.first_beat_of_current_bar() == 2
 
 
 class TestBeatExplorerCLINextBeat:

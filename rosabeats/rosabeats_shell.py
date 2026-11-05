@@ -57,7 +57,9 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
 
     def __init__(self):
         cmd.Cmd.__init__(self)
-        rosabeats.rosabeats.__init__(self)
+        # preserve any class-level debug setting (e.g. from --debug);
+        # it would otherwise be reset by the engine's default debug=False
+        rosabeats.rosabeats.__init__(self, debug=rosabeats.rosabeats.debug)
         self.macros = {}
 
     def preloop(self):
@@ -110,14 +112,31 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
         if beatsper is None or downbeat is None:
             return
 
+        if beatsper < 1:
+            print("error: beats_per_bar must be at least 1")
+            return
+
+        if downbeat < 0:
+            print("error: downbeat must be a non-negative integer")
+            return
+
         if not self.sourcefile:
             print("error: load a file first with 'file <path>'")
             return
 
         print("Tracking beats...")
-        self.track_beats(beatsper=beatsper, downbeat=downbeat)
+        try:
+            self.track_beats(beatsper=beatsper, downbeat=downbeat)
+        except ValueError as e:
+            print(f"error: {e}")
+            return
+
         print(f"Found {self.total_beats} beats in {self.total_bars} bars")
-        self.init_outputs()
+        try:
+            self.init_outputs()
+        except Exception as e:
+            print(f"warning: audio output unavailable ({e}); continuing without playback")
+            self.disable_output_play()
 
     def do_beats(self, arg):
         """Play beats: beats <N> or beats <N-M> [times]"""
@@ -261,7 +280,11 @@ class rosabeats_shell(cmd.Cmd, rosabeats.rosabeats):
         print(f"[*] {times} x beat {beat}/{divisor}")
 
         for _ in range(times):
-            self.play_beat(beat, divisor=divisor, silent=True)
+            try:
+                self.play_beat(beat, divisor=divisor, silent=True)
+            except ValueError:
+                print(f"error: beat {beat} does not exist")
+                return
         print()
 
     def do_rest(self, arg):
@@ -449,7 +472,7 @@ Examples:
     )
     parser.add_argument('file', nargs='?', metavar='FILE',
                         help='Audio file (.wav, .ogg) or recipe file (.br, .bri) to load')
-    parser.add_argument('beatsper', nargs='?', type=int, default=8, metavar='BEATSPER',
+    parser.add_argument('beatsper', nargs='?', type=int, default=None, metavar='BEATSPER',
                         help='Beats per bar (default: 8)')
     parser.add_argument('downbeat', nargs='?', type=int, default=0, metavar='DOWNBEAT',
                         help='Downbeat offset (default: 0)')
@@ -458,24 +481,37 @@ Examples:
 
     args = parser.parse_args()
 
-    # Set debug mode before creating shell
+    shell = rosabeats_shell()
+
+    # Set debug mode after shell construction (construction preserves any
+    # existing class-level debug value)
     if args.debug:
         rosabeats.rosabeats.debug = True
 
-    shell = rosabeats_shell()
     shell.preloop()
 
-    # Handle file argument
+    # Handle file argument. Errors are caught so a bad file or
+    # unavailable audio still leaves the user at the shell prompt.
     if args.file:
         filename = args.file
 
         # Check if it's a recipe file (.br or .bri) or an audio file
         if filename.endswith(".br") or filename.endswith(".bri"):
-            shell.load_recipe_file(filename)
+            try:
+                shell.load_recipe_file(filename)
+            except Exception as e:
+                print(f"error loading {filename}: {e}")
         else:
             # Treat as audio file
-            shell.onecmd(f"file {filename}")
-            shell.onecmd(f"beats_bar {args.beatsper} {args.downbeat}")
+            try:
+                shell.onecmd(f"file {filename}")
+            except Exception as e:
+                print(f"error loading {filename}: {e}")
+            if args.beatsper is not None:
+                try:
+                    shell.onecmd(f"beats_bar {args.beatsper} {args.downbeat}")
+                except Exception as e:
+                    print(f"error tracking beats: {e}")
 
     try:
         shell.cmdloop()

@@ -32,7 +32,8 @@ class BeatExplorerCLI:
             rb: A rosabeats instance with beats already tracked
         """
         self.rb = rb
-        self.current_beat_index: int = rb.downbeat if rb.downbeat else 0
+        # start at the downbeat, clamped to a beat that actually exists
+        self.current_beat_index: int = max(0, min(rb.downbeat or 0, (rb.total_beats or 1) - 1))
 
     @property
     def total_beats(self) -> int:
@@ -93,11 +94,14 @@ class BeatExplorerCLI:
         """Get the first beat index of the current bar.
 
         Returns:
-            Beat index of the first beat in the current bar
+            Beat index of the first beat in the current bar. When the
+            current beat is in the pickup region (before the first full
+            bar), returns the start of bar 0 rather than merging the
+            pickup beats into the front of bar 0.
         """
         bar = self.current_bar()
         if bar is None:
-            return 0
+            return self.downbeat
         return bar * self.beatsperbar + self.downbeat
 
     def next_beat(self, step: int = 1) -> bool:
@@ -109,6 +113,8 @@ class BeatExplorerCLI:
         Returns:
             True if moved, False if at end of track
         """
+        if self.total_beats == 0:
+            return False
         new_pos = self.current_beat_index + step
         if new_pos >= self.total_beats:
             self.current_beat_index = self.total_beats - 1
@@ -204,6 +210,11 @@ class BeatExplorerCLI:
             ))
             print("==> ", end="", flush=True)
             choice = getch()
+
+            # easy_getch returns bytes on Windows (msvcrt.getch), strings
+            # elsewhere; normalize so key comparisons work on every platform
+            if isinstance(choice, bytes):
+                choice = choice.decode(encoding="utf-8", errors="replace")
             print(choice, flush=True)
 
             if choice == 'Q':
@@ -295,8 +306,17 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    if args.beats_per_bar < 1:
+        parser.error("--beats-per-bar must be at least 1")
+    if args.downbeat < 0:
+        parser.error("--downbeat must be a non-negative integer")
+
     song = rosabeats(args.audio_file, debug=args.debug)
-    song.track_beats(beatsper=args.beats_per_bar, downbeat=args.downbeat)
+    try:
+        song.track_beats(beatsper=args.beats_per_bar, downbeat=args.downbeat)
+    except ValueError as e:
+        print(f"error: {e}")
+        sys.exit(2)
 
     if args.auto_downbeat:
         detected = song.detect_downbeat(args.beats_per_bar)
@@ -305,7 +325,11 @@ def main() -> None:
         song.total_bars = (song.total_beats - detected) // args.beats_per_bar
 
     song.enable_output_play()
-    song.init_outputs()
+    try:
+        song.init_outputs()
+    except Exception as e:
+        print(f"warning: audio output unavailable ({e}); continuing without playback")
+        song.disable_output_play()
 
     explorer = BeatExplorerCLI(song)
     try:

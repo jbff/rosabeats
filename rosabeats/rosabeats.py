@@ -173,23 +173,29 @@ class rosabeats:
         """Load audio file using FFMS2 library."""
         self.ffms_source = ffms2.AudioSource(self.sourcefile)
         self.ffms_source.init_buffer(count=self.ffms_source.properties.NumSamples)
-        self.data = self.ffms_source.get_audio(start=0).T
+        self.data = np.asarray(self.ffms_source.get_audio(start=0)).T.astype(np.float32)
+        if self.data.ndim == 1:
+            self.data = self.data[np.newaxis, :]  # mono -> (1, samples)
         self.sr = self.ffms_source.properties.SampleRate
-        self.channels = self.ffms_source.properties.Channels
-        self.dtype = type(self.data[0][0])
+        self.channels = self.ffms_source.properties.Channels if self.data.ndim > 1 else 1
+        self.dtype = "float32"
 
     def _load_soundfile(self) -> None:
         """Load audio file using soundfile library."""
         self.data, self.sr = sf.read(self.sourcefile, dtype="float32")
-        self.data = self.data.T
-        self.channels = self.data.ndim
+        if self.data.ndim == 1:
+            self.data = self.data[np.newaxis, :]  # mono -> (1, samples)
+        self.data = self.data.T  # -> (channels, samples)
+        self.channels = self.data.shape[0]
         self.dtype = "float32"
 
     def _load_librosa(self) -> None:
         """Load audio file using librosa library."""
         self.data, self.sr = librosa.load(self.sourcefile, sr=None, mono=False)
-        self.channels = self.data.ndim
-        self.dtype = type(self.data[0][0])
+        if self.data.ndim == 1:
+            self.data = self.data[np.newaxis, :]  # mono -> (1, samples)
+        self.channels = self.data.shape[0]
+        self.dtype = "float32"
 
     def load(self) -> None:
         """Load audio file using appropriate library based on file extension.
@@ -230,7 +236,15 @@ class rosabeats:
             beatsper: Number of beats per bar (default: 8)
             downbeat: Beat index of first downbeat (default: 0).
                 Use detect_downbeat() for auto-detection.
+
+        Raises:
+            ValueError: If beats per bar or downbeat is invalid for this track
         """
+        if beatsper is None or beatsper < 1:
+            raise ValueError("beats per bar must be a positive integer, got %r" % beatsper)
+        if downbeat is None or downbeat < 0:
+            raise ValueError("downbeat must be a non-negative integer, got %r" % downbeat)
+
         if self._has_saved_features():
             self._load_saved_features()
             return
@@ -240,10 +254,20 @@ class rosabeats:
 
         rosabeats.d_print("tracking beats...")
         self.tempo, self.beat_timings = librosa.beat.beat_track(y=self.mono, sr=self.sr, units='time')
+        self.tempo = float(np.asarray(self.tempo).squeeze())
+
+        if len(self.beat_timings) and downbeat >= len(self.beat_timings):
+            raise ValueError(
+                "downbeat %d is beyond the end of the track (%d beats)"
+                % (downbeat, len(self.beat_timings))
+            )
+
         self.beat_samples = librosa.time_to_samples(self.beat_timings, sr=self.sr)
+        # include the end of the audio so the final beat has a playable slice
+        last_sample = len(self.mono)
         self.beat_slices = [
             (start, end)
-            for (start, end) in zip(self.beat_samples, self.beat_samples[1:])
+            for (start, end) in zip(self.beat_samples, list(self.beat_samples[1:]) + [last_sample])
         ]
         self.total_beats = len(self.beat_timings)
 
@@ -694,18 +718,15 @@ class rosabeats:
 
         Raises:
             Exception: If beat tracking has not been performed
+            ValueError: If beat number does not exist (out of range)
         """
         if self.beat_slices is None:
             raise Exception("must track beats before playing beats")
 
         try:
             first, last = self.beat_slices[b]
-        except:
-            if not silent:
-                print("*NOB* ", end="", flush=True)
-            print(flush=True)
-            print("error: beat %d does not exist" % b)
-            return
+        except IndexError:
+            raise ValueError("beat %d does not exist" % b)
 
         if divisor > 1:
             beat_len = last - first
@@ -720,14 +741,12 @@ class rosabeats:
 
         if self.output_play:
             self.stream.write(
-                np.ascontiguousarray(
-                    np.array((self.data[0][first:last], self.data[1][first:last])).T
-                )
+                np.ascontiguousarray(self.data[:, first:last].T)
             )
 
         if self.output_save:
-            self._copy_to_remix(0, self.data[0][first:last])
-            self._copy_to_remix(1, self.data[1][first:last])
+            for channel in range(self.channels):
+                self._copy_to_remix(channel, self.data[channel][first:last])
             self.remix_index += len(self.data[0][first:last])
 
         if self.output_beats:
@@ -743,7 +762,10 @@ class rosabeats:
             beats: List of beat numbers to play
         """
         for beat in beats:
-            self.play_beat(beat)
+            try:
+                self.play_beat(beat)
+            except ValueError:
+                print("error: beat %d does not exist" % beat, flush=True)
         print(flush=True)
 
     def play_bar(self, m: int, reverse: bool = False, silent: bool = False) -> None:
@@ -781,7 +803,7 @@ class rosabeats:
             if beat == first_beat:
                 if not silent:
                     print("*", end="", flush=True)
-            self.play_beat(beat)
+            self.play_beat(beat, silent=silent)
         if not silent:
             print(flush=True)
 
@@ -1017,7 +1039,9 @@ class rosabeats:
     def shutdown(self) -> None:
         """Clean up and close all output streams."""
         if self.output_play:
-            self.stream.close()
+            if self.stream is not None:
+                self.stream.close()
+            self.stream = None
         if self.output_save:
             self.save_remix()
         if self.output_beats:

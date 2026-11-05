@@ -1,6 +1,15 @@
-"""Tests for beat_explorer_gui module."""
+"""Tests for beat_explorer_gui module.
+
+Requires the `gui` optional dependency (PyQt6). Skipped entirely and
+runs headless (offscreen platform) when no display is available.
+"""
+
+import os
+import time
 
 import pytest
+
+pytest.importorskip("PyQt6")
 from unittest.mock import Mock, MagicMock, patch
 
 from rosabeats.beat_explorer_gui import (
@@ -169,7 +178,8 @@ class TestPlaybackWorker:
 
 @pytest.fixture
 def qapp():
-    """Create or get QApplication instance for testing."""
+    """Create or get QApplication instance for testing, headless-safe."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication.instance()
@@ -368,8 +378,10 @@ class TestBeatExplorerWindow:
             window = BeatExplorerWindow()
             window._load_thread = Mock()
 
-            with patch.object(BeatExplorerWindow, "_set_playback_enabled"):
+            with patch.object(BeatExplorerWindow, "_set_playback_enabled"), \
+                 patch("rosabeats.beat_explorer_gui.QMessageBox.critical") as mock_crit:
                 window._on_load_finished(None, "file not found")
+                mock_crit.assert_called_once_with(window, "Load Error", "file not found")
 
             assert window.explorer is None
             assert "Error" in window.status_bar.currentMessage()
@@ -418,6 +430,189 @@ class TestBeatExplorerWindow:
             mock_rb.shutdown = Mock()
             window.close()
             mock_rb.shutdown.assert_called_once()
+
+
+@pytest.fixture
+def mock_rb_zero_beats():
+    """Mock rosabeats with no detected beats (e.g. loaded silence)."""
+    return MockRosabeats(total_beats=0)
+
+
+class TestReviewFixesGUI:
+    """Regression tests for the review-fix commit (threading, busy guard,
+    zero-beat guards, apply settings)."""
+
+    def _make_window(self, qapp):
+        with patch.object(BeatExplorerWindow, "_open_file_dialog"):
+            return BeatExplorerWindow()
+
+    def test_playback_worker_does_not_self_connect(self, mock_rb):
+        """PlaybackWorker must not connect its signals in __init__: a
+        self-connection made on the main thread would execute playback
+        directly on the GUI thread instead of queueing it."""
+        worker = PlaybackWorker(mock_rb)
+        worker.play_beat_signal.emit(3)
+        assert mock_rb.played_beats == []
+
+    def test_playback_runs_on_worker_thread(self, qapp):
+        """Emitting a play request must run play_beat on the worker
+        thread, not the GUI thread."""
+        import threading
+        from rosabeats.beat_explorer_cli import BeatExplorerCLI
+
+        threads_seen = []
+
+        class SlowRosabeats(MockRosabeats):
+            def play_beat(self, b, silent=False):
+                threads_seen.append(threading.current_thread().name)
+                self.played_beats.append(b)
+
+        rb = SlowRosabeats(total_beats=4, beatsperbar=4, downbeat=0)
+        rb.data = MagicMock()  # _on_load_finished only needs the object
+        window = self._make_window(qapp)
+        window._load_thread = Mock()
+        window._on_load_finished(rb, "")
+
+        window._request_play_beat(0)
+        for _ in range(200):
+            qapp.processEvents()
+            if window._busy is False and threads_seen:
+                break
+            time.sleep(0.01)
+
+        assert threads_seen, "playback never ran"
+        assert "MainThread" not in threads_seen, threads_seen
+        window._playback_thread.quit()
+        window._playback_thread.wait()
+        window.close()
+
+    def test_busy_guard_blocks_navigation(self, qapp, mock_rb):
+        """Keyboard/nav handlers must do nothing while playback is busy."""
+        from rosabeats.beat_explorer_cli import BeatExplorerCLI
+
+        window = self._make_window(qapp)
+        window.explorer = BeatExplorerCLI(mock_rb)
+        window._playback_worker = Mock()
+        window._busy = True
+
+        window._on_next_beat()
+        window._on_goto_beat()
+        window._on_goto_bar()
+
+        assert window.explorer.current_beat() == 0
+        window.close()
+
+    def test_on_load_finished_guards_zero_beat_spinboxes(self, qapp, mock_rb_zero_beats):
+        """Spinbox maxima must never go below 0 (setMaximum(-1) would
+        poison min/value with -1)."""
+        window = self._make_window(qapp)
+        window._load_thread = Mock()
+
+        window._on_load_finished(mock_rb_zero_beats, "")
+
+        assert window.spin_goto_beat.maximum() == 0
+        assert window.spin_goto_bar.maximum() == 0
+        assert window.spin_downbeat.maximum() == 0
+        assert window.explorer.current_beat() == 0
+        if window._playback_thread is not None:
+            window._playback_thread.quit()
+            window._playback_thread.wait()
+        window.close()
+
+    def test_on_load_finished_guards_spinboxes(self, qapp, mock_rb):
+        """Spinbox maxima for a normal file should still be set."""
+        window = self._make_window(qapp)
+        window._load_thread = Mock()
+
+        window._on_load_finished(mock_rb, "")
+
+        assert window.spin_goto_beat.maximum() == 31
+        assert window.spin_goto_bar.maximum() == 7
+        if window._playback_thread is not None:
+            window._playback_thread.quit()
+            window._playback_thread.wait()
+        window.close()
+
+    def test_playback_started_sets_busy(self, qapp):
+        window = self._make_window(qapp)
+        window._on_playback_started()
+        assert window._busy is True
+        window._on_playback_finished()
+        assert window._busy is False
+        window.close()
+
+    def test_apply_preserves_playhead(self, qapp, mock_rb):
+        """Applying new settings must not teleport back to bar 0."""
+        from rosabeats.beat_explorer_cli import BeatExplorerCLI
+
+        window = self._make_window(qapp)
+        window.explorer = BeatExplorerCLI(mock_rb)
+        window._playback_worker = Mock()
+        window.explorer.goto_beat(9)
+        window.spin_bpb.setValue(8)
+        window.spin_downbeat.setValue(0)
+
+        window._on_apply_settings()
+
+        assert window.explorer.current_beat() == 9
+        assert window.explorer.beatsperbar == 8
+        window.close()
+
+    def test_apply_auto_does_not_touch_rb_before_detection(self, qapp, mock_rb):
+        """With auto-detect, rb must not be mutated until detection
+        completes (a failed detect must not leave a mixed meter)."""
+        from rosabeats.beat_explorer_cli import BeatExplorerCLI
+
+        window = self._make_window(qapp)
+        window.explorer = BeatExplorerCLI(mock_rb)
+        window._playback_worker = Mock()
+        window.spin_bpb.setValue(8)
+        window.chk_auto_downbeat.setChecked(True)
+
+        window._on_apply_settings()
+
+        assert mock_rb.beatsperbar == 4  # untouched until detection finished
+        assert mock_rb.downbeat == 0
+        window.close()
+
+        # Detection runs on a thread in the background; don't leak listeners
+        if window._detect_thread is not None:
+            window._detect_thread.quit()
+            window._detect_thread.wait()
+
+    def test_on_detect_finished_applies_result(self, qapp, mock_rb):
+        """The detection-completion handler applies detected downbeat and
+        rebuilds the explorer."""
+        from rosabeats.beat_explorer_cli import BeatExplorerCLI
+
+        window = self._make_window(qapp)
+        window.explorer = BeatExplorerCLI(mock_rb)
+        window.explorer.goto_beat(6)
+        window._apply_beats_per_bar = 8
+        window._apply_old_index = 6
+
+        window._on_detect_finished(2, "")
+
+        assert mock_rb.downbeat == 2
+        assert mock_rb.beatsperbar == 8
+        assert mock_rb.total_bars == (32 - 2) // 8 == 3
+        assert window.explorer.current_beat() == 6  # position preserved
+        window.close()
+
+    def test_on_detect_finished_error_leaves_meter(self, qapp, mock_rb):
+        """A failed auto-detect must not leave rb in a mixed meter."""
+        from rosabeats.beat_explorer_cli import BeatExplorerCLI
+
+        window = self._make_window(qapp)
+        window.explorer = BeatExplorerCLI(mock_rb)
+        window._apply_beats_per_bar = 8
+
+        window._on_detect_finished(None, "detection failed")
+
+        assert mock_rb.beatsperbar == 4
+        assert mock_rb.downbeat == 0
+        assert "Error" in window.status_bar.currentMessage()
+        window.close()
 
 
 class TestMain:

@@ -218,7 +218,14 @@ class beatrecipe_processor(rosabeats):
 
             for x in range(times):
                 print("%d/%d " % (beat, divisor), end="", flush=True)
-                self.play_beat(beat, divisor=divisor, silent=True)
+                try:
+                    self.play_beat(beat, divisor=divisor, silent=True)
+                except ValueError as e:
+                    print("\nerror: %s" % e, flush=True)
+                    if self.interactive:
+                        return False
+                    else:
+                        raise e
 
             print(flush=True)
 
