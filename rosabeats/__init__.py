@@ -13,7 +13,7 @@ Main features:
 - Beat Recipe Files: Save and load beat patterns as reusable recipes
 """
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 # Import main classes and functions from the module
 from .rosabeats import rosabeats
